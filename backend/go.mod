@@ -1,6 +1,6 @@
 module rdmarket-intelligence/backend
 
-go 1.24
+go 1.22
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.5
@@ -26,7 +26,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.51.0 // indirect
