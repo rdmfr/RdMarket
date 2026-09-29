@@ -1,6 +1,5 @@
-# Forbidden attribution patterns for commit messages, code, docs, and pull requests
-(?i)co-authored-by:.*(claude|github-actions|bot|ai|chatgpt|openai|anthropic|copilot|gemini|deepmind|cursor|v0)
-(?i)signed-off-by:.*(claude|github-actions|bot|ai|chatgpt|openai|anthropic|copilot|gemini|deepmind|cursor|v0)
-(?i)generated (with|by)
-(?i)ai-assisted
-(?i)created (with|by) (claude|chatgpt|gemini|cursor|v0|copilot)
+co-authored-by:.*(claude|github-actions|bot|ai|chatgpt|openai|anthropic|copilot|gemini|deepmind|cursor|v0)
+signed-off-by:.*(claude|github-actions|bot|ai|chatgpt|openai|anthropic|copilot|gemini|deepmind|cursor|v0)
+generated (with|by)
+ai-assisted
+created (with|by) (claude|chatgpt|gemini|cursor|v0|copilot)

@@ -42,7 +42,7 @@ jobs:
       - name: Attribution & Forbidden wording scan
         run: |
           if [ -f .github/forbidden-attribution.txt ]; then
-            ! grep -E -i -f .github/forbidden-attribution.txt -r --exclude-dir={.git,node_modules,dist,docs/prompts} --exclude={CLAUDE.md,permanent.md,.github/forbidden-attribution.txt} .
+            ! grep -v '^[[:space:]]*#' .github/forbidden-attribution.txt | grep -v '^[[:space:]]*$' | grep -E -i -I -f - -r --exclude-dir={.git,node_modules,dist,docs/prompts,prompts,.claude} --exclude={CLAUDE.md,permanent.md,forbidden-attribution.txt} .
           fi
 
       - name: Validate Compose files

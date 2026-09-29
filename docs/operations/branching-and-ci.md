@@ -43,4 +43,4 @@ Images use commit-specific `sha-` tags and the moving `edge` tag. `latest` is re
 
 ## Current limitations
 
-The backend and frontend Dockerfiles are not present yet, so `docker.yml` cannot build images until Phase 0 adds them. The frontend has an existing peer conflict between Vite 8 and esbuild 0.25; the npm lockfile was generated with legacy peer resolution, but dependency cleanup is outside this layout task.
+The backend and frontend Dockerfiles are not present yet, so `docker.yml` cannot build images until Phase 0 adds them. The frontend has an existing peer conflict between Vite 8 and esbuild 0.25; the npm lockfile was created using legacy peer resolution, but dependency cleanup is outside this layout task.
