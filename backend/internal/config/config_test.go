@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestLoadConfig_Defaults(t *testing.T) {
@@ -22,6 +24,9 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	}
 	if cfg.Provider != "mock" {
 		t.Errorf("expected provider mock in dev, got: %s", cfg.Provider)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(cfg.AdminPasswordHash), []byte("admin123")); err != nil {
+		t.Errorf("expected the default development password hash to match the documented E2E credential: %v", err)
 	}
 }
 
