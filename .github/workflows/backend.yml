@@ -4,11 +4,12 @@ on:
   push:
     branches:
       - main
+      - master
       - develop
-
   pull_request:
     branches:
       - main
+      - master
       - develop
 
 permissions:
@@ -21,6 +22,21 @@ concurrency:
 jobs:
   backend:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: rdmarket_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
 
     defaults:
       run:
@@ -38,8 +54,33 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Run tests
-        run: go test ./...
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
+          working-directory: backend
+          args: --timeout=5m
+
+      - name: Run race-enabled tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/rdmarket_test?sslmode=disable
+          APP_ENV: test
+        run: CGO_ENABLED=1 go test -race ./...
+
+      - name: Test migrations (fresh up, down, up again)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/rdmarket_test?sslmode=disable
+          APP_ENV: test
+        run: |
+          go run ./cmd/server migrate-up
+          go run ./cmd/server migrate-down
+          go run ./cmd/server migrate-up
 
       - name: Build
-        run: go build ./...
+        run: go build -o /tmp/server ./cmd/server

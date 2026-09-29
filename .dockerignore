@@ -1,0 +1,9 @@
+.git
+node_modules
+dist
+build
+coverage
+*.db
+*.log
+.env
+rdmarket-intelligence.zip

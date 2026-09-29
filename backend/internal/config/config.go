@@ -1,46 +1,106 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
-	DatabaseURL        string
-	ExchangeRateAPIURL string
-	ExchangeRateAPIKey string
-	AppEnv             string
-	Port               string
+	DatabaseURL        string  `json:"database_url"`
+	ExchangeRateAPIURL string  `json:"exchange_rate_api_url"`
+	ExchangeRateAPIKey string  `json:"exchange_rate_api_key"`
+	Provider           string  `json:"provider"`
+	AppEnv             string  `json:"app_env"`
+	Port               string  `json:"port"`
+	CORSAllowedOrigins string  `json:"cors_allowed_origins"`
+	AdminUsername      string  `json:"admin_username"`
+	AdminPasswordHash  string  `json:"admin_password_hash"`
+	SessionSecret      string  `json:"session_secret"`
+	AuthRequireRead    bool    `json:"auth_require_read"`
 
 	// Market condition thresholds (transparent rule-based parameters)
-	ShortTermThreshold float64 // e.g. 0.002 (0.20%)
-	Trend30DThreshold  float64 // e.g. 0.005 (0.50%)
-	VolatilityLowLimit float64 // e.g. 0.004 (0.40% daily std dev)
-	VolatilityHighLimit float64 // e.g. 0.010 (1.00% daily std dev)
+	ShortTermThreshold  float64 `json:"short_term_threshold"`
+	Trend30DThreshold   float64 `json:"trend_30d_threshold"`
+	VolatilityLowLimit  float64 `json:"volatility_low_limit"`
+	VolatilityHighLimit float64 `json:"volatility_high_limit"`
 }
 
-func LoadConfig() *Config {
+func LoadConfig() (*Config, error) {
+	appEnv := os.Getenv("APP_ENV")
+	if appEnv == "" {
+		appEnv = "development"
+	}
+	if appEnv != "development" && appEnv != "test" && appEnv != "production" {
+		return nil, fmt.Errorf("invalid APP_ENV %q: must be development, test, or production", appEnv)
+	}
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
+		if appEnv == "production" {
+			return nil, fmt.Errorf("DATABASE_URL is required in production environment")
+		}
 		dbURL = "postgres://postgres:postgres@localhost:5432/rdmarket?sslmode=disable"
+	}
+
+	provider := os.Getenv("EXCHANGE_RATE_PROVIDER")
+	if provider == "" {
+		provider = "mock"
+	}
+	provider = strings.ToLower(provider)
+	if provider != "frankfurter" && provider != "mock" && provider != "csv" {
+		return nil, fmt.Errorf("invalid EXCHANGE_RATE_PROVIDER %q: must be frankfurter, mock, or csv", provider)
+	}
+
+	// Guard rail: Mock provider is strictly forbidden in production
+	if appEnv == "production" && provider == "mock" {
+		return nil, fmt.Errorf("guard rail violation: MockProvider is strictly forbidden when APP_ENV=production")
 	}
 
 	apiURL := os.Getenv("EXCHANGE_RATE_API_URL")
 	if apiURL == "" {
 		apiURL = "https://api.frankfurter.dev/v1"
 	}
-
 	apiKey := os.Getenv("EXCHANGE_RATE_API_KEY")
-
-	appEnv := os.Getenv("APP_ENV")
-	if appEnv == "" {
-		appEnv = "development"
-	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
+
+	corsOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if corsOrigins == "" {
+		corsOrigins = "http://localhost:3000"
+	}
+
+	adminUser := os.Getenv("ADMIN_USERNAME")
+	if adminUser == "" {
+		adminUser = "admin"
+	}
+
+	adminHash := os.Getenv("ADMIN_PASSWORD_HASH")
+	sessionSecret := os.Getenv("SESSION_SECRET")
+	if appEnv == "production" {
+		if adminHash == "" {
+			return nil, fmt.Errorf("ADMIN_PASSWORD_HASH is required in production")
+		}
+		if len(sessionSecret) < 32 {
+			return nil, fmt.Errorf("SESSION_SECRET must be at least 32 characters in production")
+		}
+	} else {
+		if adminHash == "" {
+			// default dev bcrypt hash for "admin123"
+			adminHash = "$2a$10$a1gL5wE.qV3jPZ8bE6n9..w/c11aY3XgE6K2rV2Z3F7M1Yk5qUq55"
+		}
+		if sessionSecret == "" {
+			sessionSecret = "dev-insecure-session-secret-key-32-chars-ok"
+		}
+	}
+
+	authReqRead := os.Getenv("AUTH_REQUIRE_READ") == "true"
 
 	shortTermThreshold := getEnvFloat("SHORT_TERM_THRESHOLD", 0.002)
 	trend30DThreshold := getEnvFloat("TREND_30D_THRESHOLD", 0.005)
@@ -48,16 +108,71 @@ func LoadConfig() *Config {
 	volHighLimit := getEnvFloat("VOLATILITY_HIGH_LIMIT", 0.010)
 
 	return &Config{
-		DatabaseURL:        dbURL,
-		ExchangeRateAPIURL: apiURL,
-		ExchangeRateAPIKey: apiKey,
-		AppEnv:             appEnv,
-		Port:               port,
-		ShortTermThreshold: shortTermThreshold,
-		Trend30DThreshold:  trend30DThreshold,
-		VolatilityLowLimit: volLowLimit,
+		DatabaseURL:         dbURL,
+		ExchangeRateAPIURL:  apiURL,
+		ExchangeRateAPIKey:  apiKey,
+		Provider:            provider,
+		AppEnv:              appEnv,
+		Port:                port,
+		CORSAllowedOrigins: corsOrigins,
+		AdminUsername:      adminUser,
+		AdminPasswordHash:  adminHash,
+		SessionSecret:      sessionSecret,
+		AuthRequireRead:    authReqRead,
+		ShortTermThreshold:  shortTermThreshold,
+		Trend30DThreshold:   trend30DThreshold,
+		VolatilityLowLimit:  volLowLimit,
 		VolatilityHighLimit: volHighLimit,
+	}, nil
+}
+
+// RedactedDump returns a JSON representation of config with sensitive fields masked
+func (c *Config) RedactedDump() string {
+	type SafeConfig struct {
+		DatabaseURL         string  `json:"database_url"`
+		ExchangeRateAPIURL string  `json:"exchange_rate_api_url"`
+		ExchangeRateAPIKey string  `json:"exchange_rate_api_key"`
+		Provider           string  `json:"provider"`
+		AppEnv             string  `json:"app_env"`
+		Port               string  `json:"port"`
+		CORSAllowedOrigins string  `json:"cors_allowed_origins"`
+		AdminUsername      string  `json:"admin_username"`
+		AdminPasswordHash  string  `json:"admin_password_hash"`
+		SessionSecret      string  `json:"session_secret"`
+		AuthRequireRead    bool    `json:"auth_require_read"`
+		ShortTermThreshold float64 `json:"short_term_threshold"`
+		Trend30DThreshold  float64 `json:"trend_30d_threshold"`
 	}
+
+	redactedDB := c.DatabaseURL
+	if u, err := url.Parse(c.DatabaseURL); err == nil && u.User != nil {
+		u.User = url.UserPassword(u.User.Username(), "REDACTED")
+		redactedDB = u.String()
+	}
+
+	maskedKey := ""
+	if c.ExchangeRateAPIKey != "" {
+		maskedKey = "REDACTED"
+	}
+
+	safe := SafeConfig{
+		DatabaseURL:         redactedDB,
+		ExchangeRateAPIURL:  c.ExchangeRateAPIURL,
+		ExchangeRateAPIKey:  maskedKey,
+		Provider:            c.Provider,
+		AppEnv:              c.AppEnv,
+		Port:                c.Port,
+		CORSAllowedOrigins:  c.CORSAllowedOrigins,
+		AdminUsername:       c.AdminUsername,
+		AdminPasswordHash:   "REDACTED",
+		SessionSecret:       "REDACTED",
+		AuthRequireRead:     c.AuthRequireRead,
+		ShortTermThreshold:  c.ShortTermThreshold,
+		Trend30DThreshold:   c.Trend30DThreshold,
+	}
+
+	data, _ := json.MarshalIndent(safe, "", "  ")
+	return string(data)
 }
 
 func getEnvFloat(key string, fallback float64) float64 {

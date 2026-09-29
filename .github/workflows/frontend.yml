@@ -4,11 +4,12 @@ on:
   push:
     branches:
       - main
+      - master
       - develop
-
   pull_request:
     branches:
       - main
+      - master
       - develop
 
 permissions:
@@ -42,6 +43,15 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Prettier check
+        run: npm run format:check
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Unit & Component Tests
+        run: npm run test
 
       - name: Build
         run: npm run build

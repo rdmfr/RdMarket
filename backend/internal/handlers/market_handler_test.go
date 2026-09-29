@@ -14,18 +14,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func setupTestApp(t *testing.T) *fiber.App {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to open test sqlite: %v", err)
-	}
-
-	repo := repositories.NewExchangeRateRepository(db)
-	_ = repo.AutoMigrate()
+	repo := repositories.NewMockExchangeRateRepository()
 
 	now := time.Now().UTC()
 	_ = repo.SaveBatch([]models.ExchangeRate{
@@ -35,9 +27,9 @@ func setupTestApp(t *testing.T) *fiber.App {
 	})
 
 	cfg := &config.Config{
-		ShortTermThreshold: 0.002,
-		Trend30DThreshold:  0.005,
-		VolatilityLowLimit: 0.004,
+		ShortTermThreshold:  0.002,
+		Trend30DThreshold:   0.005,
+		VolatilityLowLimit:  0.004,
 		VolatilityHighLimit: 0.010,
 	}
 

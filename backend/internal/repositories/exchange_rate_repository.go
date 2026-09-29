@@ -11,7 +11,7 @@ import (
 )
 
 type ExchangeRateRepository interface {
-	AutoMigrate() error
+	Ping() error
 	Save(rate *models.ExchangeRate) error
 	SaveBatch(rates []models.ExchangeRate) error
 	GetLatest(currencyPair string) (*models.ExchangeRate, error)
@@ -26,12 +26,16 @@ type GormExchangeRateRepository struct {
 	db *gorm.DB
 }
 
-func NewExchangeRateRepository(db *gorm.DB) *GormExchangeRateRepository {
-	return &GormExchangeRateRepository{db: db}
+func (r *GormExchangeRateRepository) Ping() error {
+	sqlDB, err := r.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Ping()
 }
 
-func (r *GormExchangeRateRepository) AutoMigrate() error {
-	return r.db.AutoMigrate(&models.ExchangeRate{})
+func NewExchangeRateRepository(db *gorm.DB) *GormExchangeRateRepository {
+	return &GormExchangeRateRepository{db: db}
 }
 
 func (r *GormExchangeRateRepository) Save(rate *models.ExchangeRate) error {

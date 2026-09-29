@@ -12,6 +12,7 @@ import (
 )
 
 type MarketService interface {
+	Ready() error
 	GetCurrentRate(currencyPair string) (*models.CurrentRateData, error)
 	GetHistory(currencyPair, rangeStr, startStr, endStr string) (*models.HistoricalRateData, error)
 	GetStatistics(currencyPair string) (*models.StatisticsData, error)
@@ -19,6 +20,10 @@ type MarketService interface {
 	GetDataSources() ([]models.DataSourceInfo, error)
 	SyncExternalData(currencyPair string) error
 	SeedInitialDataIfEmpty(currencyPair string) error
+}
+
+func (s *DefaultMarketService) Ready() error {
+	return s.repo.Ping()
 }
 
 type DefaultMarketService struct {
@@ -335,6 +340,7 @@ func (s *DefaultMarketService) GetDataSources() ([]models.DataSourceInfo, error)
 			NumberOfObservations: count,
 			BaseCurrency:         "USD",
 			TargetCurrency:       "IDR",
+			Capabilities:         s.provider.Capabilities(),
 		},
 	}, nil
 }

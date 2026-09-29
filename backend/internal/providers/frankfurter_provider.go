@@ -44,6 +44,15 @@ func (p *FrankfurterProvider) GetProviderName() string {
 	return "Frankfurter (ECB)"
 }
 
+func (p *FrankfurterProvider) Capabilities() Capabilities {
+	return Capabilities{
+		SupportsHistory: true,
+		Granularity:     "daily working-day reference rate",
+		RateLimit:       "provider terms apply",
+		LicenseNote:     "ECB reference rates via Frankfurter; verify terms before public deployment",
+	}
+}
+
 func (p *FrankfurterProvider) FetchCurrentRate(base, target string) (*models.ExchangeRate, error) {
 	url := fmt.Sprintf("%s/latest?base=%s&symbols=%s", p.baseURL, base, target)
 	resp, err := p.httpClient.Get(url)

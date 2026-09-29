@@ -1,0 +1,56 @@
+name: Repository Checks
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repo-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required foundation files
+        run: |
+          test -f CLAUDE.md
+          test -f .env.example
+          test -f .dockerignore
+          test -f .editorconfig
+          test -f Makefile
+          test -f docs/openapi.yaml
+          test -f docs/decisions/0001-data-source.md
+          test -f docs/decisions/0002-migrations-and-numeric-types.md
+          test -f docs/decisions/0003-openapi-as-contract.md
+          test -f backend/Dockerfile
+          test -f frontend/Dockerfile
+          test -f deploy/compose.prod.yml
+
+      - name: Check for common secret files
+        run: |
+          ! find . -path './.git' -prune -o -type f \( -name '.env' -o -name '*.pem' -o -name '*.key' \) -print | grep .
+
+      - name: Attribution & Forbidden wording scan
+        run: |
+          if [ -f .github/forbidden-attribution.txt ]; then
+            ! grep -E -i -f .github/forbidden-attribution.txt -r --exclude-dir={.git,node_modules,dist,docs/prompts} --exclude={CLAUDE.md,permanent.md,.github/forbidden-attribution.txt} .
+          fi
+
+      - name: Validate Compose files
+        run: |
+          docker compose -f docker-compose.yml config
+          docker compose -f deploy/compose.prod.yml config
+
+      - name: Contract Check
+        run: |
+          test -f docs/openapi.yaml
+          grep -q '^openapi: 3.1.0' docs/openapi.yaml

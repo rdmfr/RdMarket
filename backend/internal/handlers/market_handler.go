@@ -21,6 +21,7 @@ func (h *MarketHandler) RegisterRoutes(router fiber.Router) {
 
 	// Health check
 	v1.Get("/health", h.GetHealth)
+	v1.Get("/ready", h.GetReady)
 
 	// Market endpoints
 	market := v1.Group("/market")
@@ -31,6 +32,20 @@ func (h *MarketHandler) RegisterRoutes(router fiber.Router) {
 
 	// Data sources endpoint
 	v1.Get("/data-sources", h.GetDataSources)
+}
+
+func (h *MarketHandler) GetReady(c *fiber.Ctx) error {
+	if err := h.service.Ready(); err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(models.NewErrorResponse(
+			"DATABASE_UNAVAILABLE",
+			"Database is not ready",
+			nil,
+		))
+	}
+	return c.Status(fiber.StatusOK).JSON(models.NewSuccessResponse(fiber.Map{
+		"status":  "ready",
+		"service": "rdmarket-backend",
+	}, nil))
 }
 
 func (h *MarketHandler) GetHealth(c *fiber.Ctx) error {

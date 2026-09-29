@@ -7,24 +7,15 @@ import (
 	"rdmarket-intelligence/backend/internal/repositories"
 	"testing"
 	"time"
-
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestMarketService_Calculations(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to open sqlite: %v", err)
-	}
-
-	repo := repositories.NewExchangeRateRepository(db)
-	_ = repo.AutoMigrate()
+	repo := repositories.NewMockExchangeRateRepository()
 
 	cfg := &config.Config{
-		ShortTermThreshold: 0.002,
-		Trend30DThreshold:  0.005,
-		VolatilityLowLimit: 0.004,
+		ShortTermThreshold:  0.002,
+		Trend30DThreshold:   0.005,
+		VolatilityLowLimit:  0.004,
 		VolatilityHighLimit: 0.010,
 	}
 

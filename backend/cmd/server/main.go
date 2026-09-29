@@ -1,100 +1,107 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
+	"os"
 	"rdmarket-intelligence/backend/internal/config"
 	"rdmarket-intelligence/backend/internal/handlers"
 	"rdmarket-intelligence/backend/internal/middleware"
+	"rdmarket-intelligence/backend/internal/migrations"
 	"rdmarket-intelligence/backend/internal/providers"
 	"rdmarket-intelligence/backend/internal/repositories"
 	"rdmarket-intelligence/backend/internal/services"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
 func main() {
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("[RdMarket] Configuration error (fail fast): %v", err)
+	}
+
+	// Subcommand handling
+	if len(os.Args) > 1 {
+		subcommand := os.Args[1]
+		switch subcommand {
+		case "migrate-up":
+			runMigrateUp(cfg)
+			return
+		case "migrate-down":
+			runMigrateDown(cfg)
+			return
+		case "seed-dev":
+			runSeedDev(cfg)
+			return
+		case "help", "--help", "-h":
+			fmt.Println("Usage: server [migrate-up | migrate-down | seed-dev]")
+			return
+		default:
+			log.Fatalf("[RdMarket] Unknown command %q. Valid commands: migrate-up, migrate-down, seed-dev", subcommand)
+		}
+	}
+
+	// Startup guard rail verification
+	if cfg.AppEnv == "production" && cfg.Provider == "mock" {
+		log.Fatalf("[RdMarket] Guard rail violation: MockProvider is strictly forbidden in production")
+	}
+
 	log.Printf("[RdMarket] Starting RdMarket Intelligence Backend (Env: %s)", cfg.AppEnv)
+	log.Printf("[RdMarket] Loaded Config:\n%s", cfg.RedactedDump())
 
-	// Attempt connection to PostgreSQL
-	var db *gorm.DB
-	var err error
-
-	gormCfg := &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
+	// Connect to PostgreSQL
+	db, sqlDB, err := initDB(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("[RdMarket] Failed to connect to database: %v", err)
 	}
+	defer sqlDB.Close()
 
-	if cfg.DatabaseURL != "" {
-		log.Printf("[RdMarket] Connecting to Database...")
-		db, err = gorm.Open(postgres.Open(cfg.DatabaseURL), gormCfg)
-		if err != nil {
-			log.Printf("[RdMarket] Warning: Failed to connect to PostgreSQL: %v", err)
-			log.Printf("[RdMarket] Falling back to local embedded SQLite storage for development...")
-			db, err = gorm.Open(sqlite.Open("rdmarket_dev.db"), gormCfg)
-			if err != nil {
-				log.Fatalf("[RdMarket] Fatal: Could not initialize database: %v", err)
-			}
-		}
-	} else {
-		db, err = gorm.Open(sqlite.Open("rdmarket_dev.db"), gormCfg)
-		if err != nil {
-			log.Fatalf("[RdMarket] Fatal: Could not initialize fallback database: %v", err)
-		}
+	// Apply migrations on startup
+	if err := migrations.Up(sqlDB); err != nil {
+		log.Fatalf("[RdMarket] Migration error on startup: %v", err)
 	}
+	log.Printf("[RdMarket] Database schema migrations up to date")
 
-	// Initialize Repository & Run Migrations
+	// Initialize Repository
 	repo := repositories.NewExchangeRateRepository(db)
-	if err := repo.AutoMigrate(); err != nil {
-		log.Fatalf("[RdMarket] Failed to run database migrations: %v", err)
-	}
-	log.Printf("[RdMarket] Database migrations applied successfully")
 
-	// Initialize Exchange Rate Provider
+	// Initialize Provider
 	var provider providers.ExchangeRateProvider
-	if cfg.ExchangeRateAPIURL != "" {
+	switch cfg.Provider {
+	case "frankfurter":
 		provider = providers.NewFrankfurterProvider(cfg.ExchangeRateAPIURL)
-		log.Printf("[RdMarket] Using Provider: %s (%s)", provider.GetProviderName(), cfg.ExchangeRateAPIURL)
-	} else {
+		log.Printf("[RdMarket] Active provider: %s (%s)", provider.GetProviderName(), cfg.ExchangeRateAPIURL)
+	case "csv":
+		provider = providers.NewCsvImportProvider()
+		log.Printf("[RdMarket] Active provider: %s", provider.GetProviderName())
+	default:
 		provider = providers.NewMockProvider(16280.0)
-		log.Printf("[RdMarket] Using MockProvider (16280.0 base)")
+		log.Printf("[RdMarket] Active provider: %s (Simulated data banner active)", provider.GetProviderName())
 	}
 
-	// Initialize Service & Handlers
+	// Initialize Service
 	service := services.NewMarketService(repo, provider, cfg)
 
-	// Seed data if empty
-	go func() {
-		log.Printf("[RdMarket] Checking and seeding USD/IDR initial dataset...")
-		if err := service.SeedInitialDataIfEmpty("USD/IDR"); err != nil {
-			log.Printf("[RdMarket] Warning during initial seed: %v", err)
-		} else {
-			log.Printf("[RdMarket] USD/IDR dataset ready.")
-		}
-	}()
-
-	// Periodic non-aggressive background refresh (every 1 hour)
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
-		for range ticker.C {
-			log.Printf("[RdMarket] Background sync: fetching latest USD/IDR rate...")
-			_ = service.SyncExternalData("USD/IDR")
-		}
-	}()
-
-	// Initialize Fiber App
+	// Setup Fiber App
 	app := fiber.New(fiber.Config{
 		AppName:      "RdMarket Intelligence API v1",
-		ServerHeader: "Fiber",
+		ServerHeader: "RdMarket",
 	})
 
-	middleware.SetupMiddleware(app)
+	// Setup Middlewares
+	middleware.SetupMiddleware(app, cfg)
 
+	// Register Auth Routes
+	authHandler := middleware.NewAuthHandler(cfg)
+	apiV1 := app.Group("/api/v1")
+	authHandler.RegisterRoutes(apiV1)
+
+	// Register Market Routes
 	marketHandler := handlers.NewMarketHandler(service)
 	marketHandler.RegisterRoutes(app)
 
@@ -103,4 +110,68 @@ func main() {
 	if err := app.Listen(addr); err != nil {
 		log.Fatalf("[RdMarket] Server shutdown error: %v", err)
 	}
+}
+
+func initDB(databaseURL string) (*gorm.DB, *sql.DB, error) {
+	gormCfg := &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
+	}
+	db, err := gorm.Open(postgres.Open(databaseURL), gormCfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, nil, err
+	}
+	return db, sqlDB, nil
+}
+
+func runMigrateUp(cfg *config.Config) {
+	log.Println("[RdMarket] Running migrations up...")
+	_, sqlDB, err := initDB(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("[RdMarket] DB connection error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	if err := migrations.Up(sqlDB); err != nil {
+		log.Fatalf("[RdMarket] Migration up failed: %v", err)
+	}
+	log.Println("[RdMarket] Migrations up completed successfully.")
+}
+
+func runMigrateDown(cfg *config.Config) {
+	log.Println("[RdMarket] Rolling back last migration...")
+	_, sqlDB, err := initDB(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("[RdMarket] DB connection error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	if err := migrations.Down(sqlDB); err != nil {
+		log.Fatalf("[RdMarket] Migration down failed: %v", err)
+	}
+	log.Println("[RdMarket] Migration rollback completed successfully.")
+}
+
+func runSeedDev(cfg *config.Config) {
+	if cfg.AppEnv == "production" {
+		log.Fatalf("[RdMarket] Seeding dev data is strictly forbidden in production")
+	}
+	log.Println("[RdMarket] Seeding dev dataset for USD/IDR...")
+	db, sqlDB, err := initDB(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("[RdMarket] DB connection error: %v", err)
+	}
+	defer sqlDB.Close()
+
+	repo := repositories.NewExchangeRateRepository(db)
+	mockProv := providers.NewMockProvider(16280.0)
+	service := services.NewMarketService(repo, mockProv, cfg)
+
+	if err := service.SeedInitialDataIfEmpty("USD/IDR"); err != nil {
+		log.Fatalf("[RdMarket] Seeding error: %v", err)
+	}
+	log.Println("[RdMarket] Dev seeding completed.")
 }

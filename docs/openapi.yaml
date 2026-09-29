@@ -1,0 +1,190 @@
+openapi: 3.1.0
+info:
+  title: RdMarket Intelligence API
+  version: 1.0.0
+  description: Analytical USD/IDR financial market monitoring API foundation.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness check
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /ready:
+    get:
+      operationId: getReady
+      summary: Readiness check (checks database and active dependencies)
+      responses:
+        "200":
+          description: Service and dependencies are ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "503":
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /auth/login:
+    post:
+      operationId: authLogin
+      summary: Minimal single-tenant admin authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Successful authentication, sets httpOnly session cookie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /auth/logout:
+    post:
+      operationId: authLogout
+      summary: Clears session cookie
+      responses:
+        "200":
+          description: Session terminated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      summary: Returns current session authentication state
+      responses:
+        "200":
+          description: Current user session status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /data-sources:
+    get:
+      operationId: getDataSources
+      summary: Provider capabilities, granularity, and status
+      responses:
+        "200":
+          description: Active data source metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /market/usdidr/current:
+    get:
+      operationId: getCurrentRate
+      summary: Latest stored USD/IDR observation
+      responses:
+        "200":
+          description: Latest observation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "404":
+          description: No observation available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /market/usdidr/history:
+    get:
+      operationId: getHistory
+      summary: Historical observations
+      parameters:
+        - name: range
+          in: query
+          schema:
+            type: string
+            enum: [1D, 7D, 1M, 3M, 6M, 1Y, 5Y]
+        - name: start
+          in: query
+          schema: { type: string, format: date }
+        - name: end
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Historical rate points
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "422":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /market/usdidr/statistics:
+    get:
+      operationId: getStatistics
+      summary: Deterministic statistics (52-week high/low, changes, averages)
+      responses:
+        "200":
+          description: Calculated market statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /market/usdidr/indicators:
+    get:
+      operationId: getIndicators
+      summary: SMA and market condition indicators
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Technical and market condition indicators
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+components:
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+    ResponseEnvelope:
+      type: object
+      required: [data, meta, error]
+      properties:
+        data: {}
+        meta:
+          type: object
+          properties:
+            simulated: { type: boolean }
+          additionalProperties: true
+        error:
+          anyOf:
+            - $ref: "#/components/schemas/Error"
+            - type: "null"

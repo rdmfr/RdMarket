@@ -27,6 +27,16 @@ func (p *MockProvider) GetProviderName() string {
 	return p.Source
 }
 
+func (p *MockProvider) Capabilities() Capabilities {
+	return Capabilities{
+		SupportsHistory: true,
+		MaxHistoryDays:  3650,
+		Granularity:     "daily",
+		RateLimit:       "development only",
+		LicenseNote:     "Synthetic data for development and tests only",
+	}
+}
+
 func (p *MockProvider) FetchCurrentRate(base, target string) (*models.ExchangeRate, error) {
 	now := time.Now().UTC()
 	return &models.ExchangeRate{

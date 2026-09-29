@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -30,16 +28,26 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/rdmarket?sslmode=disable
+      EXCHANGE_RATE_PROVIDER: mock
       EXCHANGE_RATE_API_URL: https://api.frankfurter.dev/v1
       EXCHANGE_RATE_API_KEY: ""
-      APP_ENV: production
+      APP_ENV: development
       PORT: 8080
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD_HASH: "$$2a$$10$$a1gL5wE.qV3jPZ8bE6n9..w/c11aY3XgE6K2rV2Z3F7M1Yk5qUq55"
+      SESSION_SECRET: "dev-session-secret-min-32-chars-long"
+      AUTH_REQUIRE_READ: "false"
       SHORT_TERM_THRESHOLD: 0.002
       TREND_30D_THRESHOLD: 0.005
       VOLATILITY_LOW_LIMIT: 0.004
       VOLATILITY_HIGH_LIMIT: 0.010
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -48,7 +56,8 @@ services:
     container_name: rdmarket-frontend
     restart: always
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "3000:80"
 
