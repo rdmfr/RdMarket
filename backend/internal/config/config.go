@@ -10,17 +10,17 @@ import (
 )
 
 type Config struct {
-	DatabaseURL        string  `json:"database_url"`
-	ExchangeRateAPIURL string  `json:"exchange_rate_api_url"`
-	ExchangeRateAPIKey string  `json:"exchange_rate_api_key"`
-	Provider           string  `json:"provider"`
-	AppEnv             string  `json:"app_env"`
-	Port               string  `json:"port"`
-	CORSAllowedOrigins string  `json:"cors_allowed_origins"`
-	AdminUsername      string  `json:"admin_username"`
-	AdminPasswordHash  string  `json:"admin_password_hash"`
-	SessionSecret      string  `json:"session_secret"`
-	AuthRequireRead    bool    `json:"auth_require_read"`
+	DatabaseURL        string `json:"database_url"`
+	ExchangeRateAPIURL string `json:"exchange_rate_api_url"`
+	ExchangeRateAPIKey string `json:"exchange_rate_api_key"`
+	Provider           string `json:"provider"`
+	AppEnv             string `json:"app_env"`
+	Port               string `json:"port"`
+	CORSAllowedOrigins string `json:"cors_allowed_origins"`
+	AdminUsername      string `json:"admin_username"`
+	AdminPasswordHash  string `json:"admin_password_hash"`
+	SessionSecret      string `json:"session_secret"`
+	AuthRequireRead    bool   `json:"auth_require_read"`
 
 	// Market condition thresholds (transparent rule-based parameters)
 	ShortTermThreshold  float64 `json:"short_term_threshold"`
@@ -114,11 +114,11 @@ func LoadConfig() (*Config, error) {
 		Provider:            provider,
 		AppEnv:              appEnv,
 		Port:                port,
-		CORSAllowedOrigins: corsOrigins,
-		AdminUsername:      adminUser,
-		AdminPasswordHash:  adminHash,
-		SessionSecret:      sessionSecret,
-		AuthRequireRead:    authReqRead,
+		CORSAllowedOrigins:  corsOrigins,
+		AdminUsername:       adminUser,
+		AdminPasswordHash:   adminHash,
+		SessionSecret:       sessionSecret,
+		AuthRequireRead:     authReqRead,
 		ShortTermThreshold:  shortTermThreshold,
 		Trend30DThreshold:   trend30DThreshold,
 		VolatilityLowLimit:  volLowLimit,
@@ -129,7 +129,7 @@ func LoadConfig() (*Config, error) {
 // RedactedDump returns a JSON representation of config with sensitive fields masked
 func (c *Config) RedactedDump() string {
 	type SafeConfig struct {
-		DatabaseURL         string  `json:"database_url"`
+		DatabaseURL        string  `json:"database_url"`
 		ExchangeRateAPIURL string  `json:"exchange_rate_api_url"`
 		ExchangeRateAPIKey string  `json:"exchange_rate_api_key"`
 		Provider           string  `json:"provider"`
@@ -156,19 +156,19 @@ func (c *Config) RedactedDump() string {
 	}
 
 	safe := SafeConfig{
-		DatabaseURL:         redactedDB,
-		ExchangeRateAPIURL:  c.ExchangeRateAPIURL,
-		ExchangeRateAPIKey:  maskedKey,
-		Provider:            c.Provider,
-		AppEnv:              c.AppEnv,
-		Port:                c.Port,
-		CORSAllowedOrigins:  c.CORSAllowedOrigins,
-		AdminUsername:       c.AdminUsername,
-		AdminPasswordHash:   "REDACTED",
-		SessionSecret:       "REDACTED",
-		AuthRequireRead:     c.AuthRequireRead,
-		ShortTermThreshold:  c.ShortTermThreshold,
-		Trend30DThreshold:   c.Trend30DThreshold,
+		DatabaseURL:        redactedDB,
+		ExchangeRateAPIURL: c.ExchangeRateAPIURL,
+		ExchangeRateAPIKey: maskedKey,
+		Provider:           c.Provider,
+		AppEnv:             c.AppEnv,
+		Port:               c.Port,
+		CORSAllowedOrigins: c.CORSAllowedOrigins,
+		AdminUsername:      c.AdminUsername,
+		AdminPasswordHash:  "REDACTED",
+		SessionSecret:      "REDACTED",
+		AuthRequireRead:    c.AuthRequireRead,
+		ShortTermThreshold: c.ShortTermThreshold,
+		Trend30DThreshold:  c.Trend30DThreshold,
 	}
 
 	data, _ := json.MarshalIndent(safe, "", "  ")

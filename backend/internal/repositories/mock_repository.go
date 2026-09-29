@@ -176,17 +176,17 @@ func (m *MockExchangeRateRepository) GetStatistics(currencyPair string) (*models
 	avg := sum / float64(len(history))
 
 	return &models.StatisticsData{
-		CurrencyPair:         currencyPair,
-		CurrentRate:          &curRate,
-		PreviousClose:        prevClose,
-		DailyChange:          dailyChange,
-		DailyChangePercent:   dailyChangePct,
-		High52Week:           &high52,
-		Low52Week:            &low52,
-		AverageRate:          &avg,
-		MinimumRate:          &low52,
-		MaximumRate:          &high52,
-		ObservationCount:     totalObs,
-		HasSufficientData:    true,
+		CurrencyPair:       currencyPair,
+		CurrentRate:        &curRate,
+		PreviousClose:      prevClose,
+		DailyChange:        dailyChange,
+		DailyChangePercent: dailyChangePct,
+		High52Week:         &high52,
+		Low52Week:          &low52,
+		AverageRate:        &avg,
+		MinimumRate:        &low52,
+		MaximumRate:        &high52,
+		ObservationCount:   totalObs,
+		HasSufficientData:  true,
 	}, nil
 }

@@ -13,9 +13,9 @@ import (
 var migrationFiles embed.FS
 
 type migration struct {
-	version int
-	name    string
-	upFile  string
+	version  int
+	name     string
+	upFile   string
 	downFile string
 }
 
