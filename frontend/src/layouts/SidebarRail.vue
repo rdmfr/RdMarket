@@ -62,6 +62,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { t } from '@/i18n/forecasting';
 
 const isExpanded = ref(false);
 
@@ -69,6 +70,7 @@ const navItems = [
   { label: 'Dashboard', path: '/', icon: '⊞' },
   { label: 'Market Data', path: '/market-data', icon: '☰' },
   { label: 'Indicators', path: '/indicators', icon: '📈' },
+  { label: t('forecasting.nav'), path: '/forecast', icon: '↗' },
   { label: 'Data Sources', path: '/data-sources', icon: '⚏' },
   { label: 'Settings', path: '/settings', icon: '⚙' },
 ];

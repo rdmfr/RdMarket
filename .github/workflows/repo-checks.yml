@@ -2,9 +2,9 @@ name: Repository Checks
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, develop, 'feature/**']
   pull_request:
-    branches: [main, develop]
+    branches: [master, develop]
 
 permissions:
   contents: read
@@ -46,6 +46,10 @@ jobs:
           fi
 
       - name: Validate Compose files
+        env:
+          FORECAST_INTERNAL_TOKEN: ci-forecast-token-placeholder-long-enough
+          FORECASTING_IMAGE_TAG: sha-0000000
+          FORECAST_DB_PASSWORD: ci-forecast-db-password-placeholder
         run: |
           docker compose -f docker-compose.yml config
           docker compose -f deploy/compose.prod.yml config

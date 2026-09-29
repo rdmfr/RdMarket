@@ -227,14 +227,15 @@ The repository is public. The owner is the sole author.
 
 ## CI/CD (GitHub Actions)
 
-Branch model (owner decision):
+Branch model:
 
-- `main` is the production line, `develop` is the development line, `feature/*` are short-lived branches.
-- Flow: `feature/*` -> pull request into `develop` -> checks pass -> merge; later `develop` -> pull request
-  into `main`. Version tags `v*` are created on `main` only.
-- `main` and `develop` are protected: pull request required, required status checks, conversation
+- `master` is the protected production line; `develop` is the protected integration line; `feature/*` are
+  short-lived work branches.
+- Flow: `feature/*` -> pull request into `develop` -> required checks pass -> merge; then `develop` ->
+  pull request into `master`. Version tags `v*` are created from `master` only.
+- `master` and `develop` are protected: pull request required, required status checks, conversation
   resolution, no direct pushes. The owner applies these settings in GitHub.
-- The assistant never creates branches, tags, or pushes. The owner does.
+- The assistant creates or pushes branches only when the owner explicitly authorizes it.
 
 CI/CD stages (called "Stage" so they are not confused with product Phases 0 to 5):
 1 CI, 2 Container (GHCR), 3 Staging, 4 Production, 5 Advanced.
@@ -249,20 +250,20 @@ recreate or rename them. Job ids are the required status check names and must st
 | frontend.yml | frontend | Phase 0 | npm ci, ESLint, Prettier, vue-tsc, Vitest, build; bundle size budget from Phase 4 |
 | repo-checks.yml | repo-checks | Phase 0 | secret scan, contract check, forbidden wording scan, compose smoke test |
 | e2e.yml | e2e | Phase 0 | Playwright against the compose test profile |
-| docker.yml | docker | Phase 0 | push to main: build and push images to GHCR |
+| docker.yml | docker | Phase 0 | push to master: build and push images to GHCR |
 | forecasting.yml | forecasting | Phase 2 | Python tests and audit; image added to docker.yml |
 | perf.yml | perf | Phase 4 | k6 smoke and Lighthouse budgets; advisory (not required) until stable |
 | security.yml | security | Phase 5 | govulncheck, npm audit, pip-audit, Trivy, optional SBOM |
 | attribution-check.yml | attribution-check | Phase 5 | forbidden attribution scan |
 | restore-drill.yml | restore-drill | Phase 5 | backup restore drill |
 | release.yml | release | Phase 5 | tag v*: versioned images and GitHub Release |
-| deploy-staging.yml | deploy-staging | Phase 5 | only if the owner chose staging auto-deploy from develop |
+| deploy-staging.yml | deploy-staging | Phase 5 | only if the owner chooses a staging source and trigger |
 | deploy-production.yml | deploy-production | Phase 5 | manual dispatch, environment approval, specific tag |
 
 Rules:
 
-- CI workflows run on push and pull_request for `main` and `develop`. No path filters on workflows whose jobs
-  are required checks (a skipped required check blocks merging).
+- CI workflows run on pushes to `master`, `develop`, and `feature/*`, and pull requests into `develop` or
+  `master`. No path filters on workflows whose jobs are required checks (a skipped required check blocks merging).
 - Package manager is npm: `npm ci`, `package-lock.json` committed. Go version follows `backend/go.mod`.
 - When a phase adds tests, migrations, a service, or an image, extend the matching workflow and list the
   change in the final report. A new service gets its own workflow and image.
@@ -272,16 +273,16 @@ Rules:
   superseded runs (never for image publishing or deployment). No `pull_request_target` with untrusted checkout.
 - Secrets only from repository or environment secrets. Never echo them. Deployment credentials never live in
   the repository.
-- Images live in GHCR, lowercase: `ghcr.io/rdmfr/rdmarket-<component>`. Push to `main` publishes `sha-<7 chars>`
-  and `edge`. A `v*` tag publishes `vX.Y.Z`, `sha-<7 chars>`, and `latest`. Production and staging compose files
+- Images live in GHCR, lowercase: `ghcr.io/rdmfr/rdmarket-<component>`. Push to `master` publishes `sha-<7 chars>`
+  and `edge`. A `v*` tag from `master` publishes `vX.Y.Z`, `sha-<7 chars>`, and `latest`. Production and staging compose files
   pin version tags (digest where practical) and never use `latest` or `edge`.
-- Deployment: staging auto-deploy from `develop` only if the owner decided so; production is always manual
-  dispatch of a specific tag with required reviewers on the `production` environment.
+- Deployment: staging source and trigger are an owner decision; production is always manual dispatch of a
+  specific tag with required reviewers on the `production` environment.
 - Dependabot (or Renovate) covers Go modules, npm, pip, GitHub Actions, and Docker base images, targets
-  `develop`, with grouped low-noise updates.
+  `master`, with grouped low-noise updates.
 - Release notes come from CHANGELOG.md. Optional SBOM.
 - Repository settings (applied by the owner, documented in docs/operations/github-setup.md): branch
-  protection on `main` and `develop` with the job ids above as required checks, secret scanning and push
+  protection on `develop` and `master` with the job ids above as required checks, secret scanning and push
   protection, Dependabot alerts, private vulnerability reporting, 2FA, environments `staging` and `production`.
 
 ## Workflow

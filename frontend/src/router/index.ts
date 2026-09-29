@@ -4,6 +4,7 @@ import MarketDataView from '@/views/MarketDataView.vue';
 import IndicatorsView from '@/views/IndicatorsView.vue';
 import DataSourcesView from '@/views/DataSourcesView.vue';
 import SettingsView from '@/views/SettingsView.vue';
+import ForecastingView from '@/views/ForecastingView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -22,6 +23,11 @@ const router = createRouter({
       path: '/indicators',
       name: 'indicators',
       component: IndicatorsView,
+    },
+    {
+      path: '/forecast',
+      name: 'forecast',
+      component: ForecastingView,
     },
     {
       path: '/data-sources',

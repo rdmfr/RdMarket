@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: RdMarket Intelligence API
   version: 1.0.0
-  description: Analytical USD/IDR financial market monitoring API foundation.
+  description: Analytical USD/IDR market monitoring, forecasting, and backtesting API.
 servers:
   - url: /api/v1
 paths:
@@ -187,6 +187,240 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResponseEnvelope"
+  /forecast/usdidr/models:
+    get:
+      operationId: getForecastModels
+      summary: Supported forecast models and minimum history requirements
+      responses:
+        "200":
+          description: Forecast model catalog, including optional model availability and minimum history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastModelCatalogResponse"
+  /forecast/usdidr/latest:
+    get:
+      operationId: getLatestForecast
+      summary: Latest stored forecast with intervals and baseline comparison
+      parameters:
+        - name: model
+          in: query
+          schema: { type: string }
+        - name: horizon
+          in: query
+          schema: { type: integer, enum: [1, 5, 10, 21, 63] }
+      responses:
+        "200":
+          description: Forecast run, forecasts, recent history, and naive baseline comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "404":
+          description: No completed forecast is available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "422":
+          description: Unsupported model or horizon
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /forecast/usdidr/runs/{id}:
+    get:
+      operationId: getForecastRun
+      summary: Forecast run metadata and interval points
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Forecast run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "404":
+          description: Forecast run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /forecast/usdidr/jobs:
+    get:
+      operationId: getForecastJobs
+      summary: Paginated forecasting job list
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Forecast jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+    post:
+      operationId: createForecastJob
+      summary: Create a forecast or backtest job
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForecastJobRequest"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "409":
+          description: Concurrent job limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "422":
+          description: Invalid job parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "503":
+          description: Forecasting service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /forecast/usdidr/jobs/{id}:
+    get:
+      operationId: getForecastJob
+      summary: Forecasting job status and progress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Forecasting job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /forecast/usdidr/backtests:
+    get:
+      operationId: getForecastBacktests
+      summary: Paginated backtest runs and summary metrics
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Backtest runs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /forecast/usdidr/backtests/{id}:
+    get:
+      operationId: getForecastBacktest
+      summary: Backtest run details and evaluation metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Backtest run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "404":
+          description: Backtest run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /forecast/usdidr/backtests/{id}/predictions:
+    get:
+      operationId: getForecastBacktestPredictions
+      summary: Paginated walk-forward predictions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: Out-of-sample predictions and observed values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "404":
+          description: Backtest run not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+  /forecast/usdidr/leaderboard:
+    get:
+      operationId: getForecastLeaderboard
+      summary: Backtest metric comparison with naive baselines
+      parameters:
+        - name: horizon
+          in: query
+          schema: { type: integer, enum: [1, 5, 10, 21, 63], default: 1 }
+      responses:
+        "200":
+          description: Model metrics and skill score versus naive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastLeaderboardResponse"
+        "422":
+          description: Unsupported forecast horizon
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
 components:
   schemas:
     Error:
@@ -209,3 +443,106 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Error"
             - type: "null"
+    ForecastModel:
+      type: object
+      required:
+        - name
+        - version
+        - stability
+        - label
+        - available
+        - unavailable_reason
+        - min_history
+        - minimum_observations
+        - description
+      properties:
+        name:
+          type: string
+          enum: [naive, drift, seasonal_naive, ets, arima, sarima, ridge, gradient_boosting, lstm]
+        version: { type: string }
+        stability: { type: string, enum: [stable, experimental] }
+        label: { type: string }
+        available: { type: boolean }
+        unavailable_reason:
+          type: [string, "null"]
+        min_history: { type: integer, minimum: 1 }
+        minimum_observations: { type: integer, minimum: 1 }
+        description: { type: string }
+    ForecastModelCatalogResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/ForecastModel"
+    ForecastLeaderboardItem:
+      type: object
+      required:
+        - model_name
+        - horizon
+        - mae
+        - rmse
+        - mape
+        - mase
+        - directional_accuracy
+        - interval_coverage
+        - skill_score_vs_naive
+        - is_baseline
+      properties:
+        model_name: { type: string }
+        horizon: { type: integer, enum: [1, 5, 10, 21, 63] }
+        mae: { type: [number, "null"] }
+        rmse: { type: [number, "null"] }
+        mape: { type: [number, "null"] }
+        mase: { type: [number, "null"] }
+        directional_accuracy: { type: [number, "null"] }
+        interval_coverage: { type: [number, "null"] }
+        skill_score_vs_naive: { type: [number, "null"] }
+        is_baseline: { type: boolean }
+    ForecastLeaderboard:
+      type: object
+      required: [horizon, items, no_model_beats_naive, has_evaluations]
+      properties:
+        horizon: { type: integer, enum: [1, 5, 10, 21, 63] }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ForecastLeaderboardItem"
+        no_model_beats_naive: { type: boolean }
+        has_evaluations: { type: boolean }
+    ForecastLeaderboardResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ForecastLeaderboard"
+    ForecastJobRequest:
+      type: object
+      required: [job_type, models, horizon]
+      properties:
+        job_type:
+          type: string
+          enum: [forecast, backtest]
+        models:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            enum: [naive, drift, seasonal_naive, ets, arima, sarima, ridge, gradient_boosting, lstm]
+        horizon:
+          type: integer
+          enum: [1, 5, 10, 21, 63]
+        params:
+          type: object
+          additionalProperties: true
+        force:
+          type: boolean
+          default: false
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: rdm_session

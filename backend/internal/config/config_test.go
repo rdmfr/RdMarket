@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestLoadConfig_Defaults(t *testing.T) {
@@ -22,6 +24,9 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	}
 	if cfg.Provider != "mock" {
 		t.Errorf("expected provider mock in dev, got: %s", cfg.Provider)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(cfg.AdminPasswordHash), []byte("admin123")); err != nil {
+		t.Errorf("expected the default development password hash to match the documented E2E credential: %v", err)
 	}
 }
 
@@ -78,5 +83,32 @@ func TestConfig_RedactedDump(t *testing.T) {
 	}
 	if !strings.Contains(dump, "REDACTED") {
 		t.Errorf("RedactedDump should contain 'REDACTED'")
+	}
+}
+
+func TestLoadConfig_ValidatesForecastSettings(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("FORECAST_MAX_CONCURRENT_JOBS", "0")
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "FORECAST_MAX_CONCURRENT_JOBS") {
+		t.Fatalf("expected invalid job limit to be rejected, got %v", err)
+	}
+
+	t.Setenv("FORECAST_MAX_CONCURRENT_JOBS", "2")
+	t.Setenv("FORECAST_SERVICE_URL", "file:///etc/passwd")
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "FORECAST_SERVICE_URL") {
+		t.Fatalf("expected invalid forecast service URL to be rejected, got %v", err)
+	}
+}
+
+func TestLoadConfig_ProductionRequiresStrongForecastToken(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("DATABASE_URL", "postgres://localhost:5432/rdmarket")
+	t.Setenv("EXCHANGE_RATE_PROVIDER", "frankfurter")
+	t.Setenv("ADMIN_PASSWORD_HASH", "$2a$10$abcdefghijklmnopqrstuvwxyz1234567890")
+	t.Setenv("SESSION_SECRET", "this-is-a-long-enough-32-byte-secret-key!")
+	t.Setenv("FORECAST_INTERNAL_TOKEN", "short-token")
+
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "FORECAST_INTERNAL_TOKEN") {
+		t.Fatalf("expected weak forecast token to be rejected in production, got %v", err)
 	}
 }
