@@ -5,6 +5,7 @@ RdMarket stores exchange-rate observations and related operational records in Po
 ## Core Schema Conventions
 - **Timestamps**: All timestamps use `TIMESTAMPTZ` and are stored strictly in UTC.
 - **Rates & Monetary Values**: All rates use `NUMERIC(16,4)` in PostgreSQL with explicit scale. Floating-point types (`FLOAT`, `DOUBLE`) are prohibited in table definitions.
+- **Forecast values**: Forecast points, bounds, observed backtest values, and metric values use PostgreSQL `NUMERIC`; Python model calculations convert to numeric storage at the persistence boundary.
 - **Naming**: snake_case plural table names (`exchange_rates`, `schema_migrations`), explicit constraint and index names (`uq_exchange_rates_pair_time_source`, `chk_exchange_rates_quality_status`).
 - **Audit Columns**: Every table includes `created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`. Mutable tables include `updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP`.
 
@@ -31,7 +32,17 @@ Indexes:
 ## Database Role Separation
 - Migration `002_create_roles` establishes:
   - `rdm_app`: Used by the backend application container for normal read/write operations.
-  - `rdm_readonly`: Provisioned for read-only analytical services, reporting, and forecasting pipelines.
+  - `rdm_readonly`: Provisioned for read-only analytical and reporting use.
+- Migration `003_create_forecasting_tables` establishes `rdm_forecast` as a no-login role when it is absent, grants it `SELECT` on accepted exchange-rate storage and read/write access only to forecast result/job tables. Provision a separate login with a secret-managed password before connecting the Python service. Fresh development databases provision this login through `deploy/postgres/init-forecast-role.sh`.
+
+## Phase 2 Forecasting Tables
+
+Migration `003_create_forecasting_tables` adds `forecast_jobs`, `forecast_runs`,
+`forecasts`, `backtest_runs`, `backtest_predictions`, and
+`model_evaluations`. The job and run metadata use UTC `TIMESTAMPTZ`; all rates,
+interval bounds, actual/predicted values, and evaluation metrics use
+`NUMERIC`. Foreign keys cascade only when an explicit retention/cleanup
+operation deletes a parent record. No results are removed automatically.
 
 ## PgBouncer Readiness
 - The application does not use server-side named prepared statements across transactions.

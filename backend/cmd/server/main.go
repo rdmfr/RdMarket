@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"rdmarket-intelligence/backend/internal/config"
+	"rdmarket-intelligence/backend/internal/forecasting"
 	"rdmarket-intelligence/backend/internal/handlers"
 	"rdmarket-intelligence/backend/internal/middleware"
 	"rdmarket-intelligence/backend/internal/migrations"
@@ -113,6 +114,9 @@ func main() {
 	authHandler := middleware.NewAuthHandler(cfg)
 	apiV1 := app.Group("/api/v1")
 	authHandler.RegisterRoutes(apiV1)
+	forecastClient := forecasting.NewHTTPForecastingClient(cfg.ForecastServiceURL, cfg.ForecastInternalToken)
+	forecastService := forecasting.NewService(db, forecastClient, cfg)
+	forecasting.NewHandler(forecastService, authHandler).RegisterRoutes(apiV1)
 
 	// Register Market Routes
 	marketHandler := handlers.NewMarketHandler(service)

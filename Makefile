@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup dev build test lint migrate-up migrate-down seed-dev e2e compose-up compose-down contract-check
+.PHONY: help setup dev build test lint migrate-up migrate-down seed-dev e2e compose-up compose-down contract-check forecasting-test
 
 help:
-	@echo "Targets: setup dev build test lint migrate-up migrate-down seed-dev e2e compose-up compose-down contract-check"
+	@echo "Targets: setup dev build test lint migrate-up migrate-down seed-dev e2e compose-up compose-down contract-check forecasting-test"
 
 setup:
 	cd frontend && npm ci
@@ -19,6 +19,10 @@ build:
 test:
 	cd backend && go test ./...
 	cd frontend && npm run test
+	cd forecasting && pytest
+
+forecasting-test:
+	cd forecasting && pytest
 
 lint:
 	cd backend && gofmt -l . && go vet ./...

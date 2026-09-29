@@ -26,5 +26,6 @@ Financial market calculations and auditability require immutable schemas, zero f
 ### 4. Database Roles & PgBouncer
 - Migration 002 establishes two distinct roles:
   - `rdm_app`: Read/Write access on application tables for backend operations.
-  - `rdm_readonly`: Read-only access for future forecasting, analytics, and reporting workers.
+  - `rdm_readonly`: Read-only access for analytics and reporting workers.
+- Phase 2 migration 003 adds `rdm_forecast`, grants read-only access to accepted exchange observations, and grants read/write access to forecast jobs and result tables. The service's login password is provisioned separately from a secret store; the migration never stores it.
 - Connection design is compatible with PgBouncer transaction pooling (no reliance on named prepared statements or session-level advisory locks).

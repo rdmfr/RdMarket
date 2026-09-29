@@ -29,6 +29,9 @@ type Config struct {
 	VolatilityHighLimit      float64 `json:"volatility_high_limit"`
 	IngestionIntervalMinutes int     `json:"ingestion_interval_minutes"`
 	HistoryPointLimit        int     `json:"history_point_limit"`
+	ForecastServiceURL       string  `json:"forecast_service_url"`
+	ForecastInternalToken    string  `json:"forecast_internal_token"`
+	ForecastMaxConcurrent    int     `json:"forecast_max_concurrent_jobs"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -116,6 +119,28 @@ func LoadConfig() (*Config, error) {
 	if historyPointLimit < 100 {
 		return nil, fmt.Errorf("HISTORY_POINT_LIMIT must be at least 100")
 	}
+	forecastServiceURL := strings.TrimRight(os.Getenv("FORECAST_SERVICE_URL"), "/")
+	if forecastServiceURL == "" {
+		forecastServiceURL = "http://forecasting:8000"
+	}
+	parsedForecastURL, err := url.ParseRequestURI(forecastServiceURL)
+	if err != nil || (parsedForecastURL.Scheme != "http" && parsedForecastURL.Scheme != "https") || parsedForecastURL.Host == "" {
+		return nil, fmt.Errorf("FORECAST_SERVICE_URL must be a valid HTTP or HTTPS URL")
+	}
+	forecastToken := os.Getenv("FORECAST_INTERNAL_TOKEN")
+	if appEnv == "production" && len(forecastToken) < 32 {
+		return nil, fmt.Errorf("FORECAST_INTERNAL_TOKEN must be at least 32 characters in production")
+	}
+	forecastMaxConcurrent := 2
+	if value := os.Getenv("FORECAST_MAX_CONCURRENT_JOBS"); value != "" {
+		forecastMaxConcurrent, err = strconv.Atoi(value)
+		if err != nil {
+			return nil, fmt.Errorf("FORECAST_MAX_CONCURRENT_JOBS must be an integer")
+		}
+	}
+	if forecastMaxConcurrent < 1 || forecastMaxConcurrent > 20 {
+		return nil, fmt.Errorf("FORECAST_MAX_CONCURRENT_JOBS must be between 1 and 20")
+	}
 
 	return &Config{
 		DatabaseURL:              dbURL,
@@ -135,6 +160,9 @@ func LoadConfig() (*Config, error) {
 		VolatilityHighLimit:      volHighLimit,
 		IngestionIntervalMinutes: ingestionIntervalMinutes,
 		HistoryPointLimit:        historyPointLimit,
+		ForecastServiceURL:       forecastServiceURL,
+		ForecastInternalToken:    forecastToken,
+		ForecastMaxConcurrent:    forecastMaxConcurrent,
 	}, nil
 }
 

@@ -92,3 +92,13 @@ Defined centrally in `src/tokens.css` and mapped into Tailwind v4 `@theme` confi
 - [x] IBM Plex Sans + JetBrains Mono tabular-nums throughout
 - [x] Amber (`#D9A441`) as the sole restrained accent color
 - [x] Fully prepared for Phase 2 forecast series (`--series-forecast`, confidence interval bands)
+
+### Forecast series
+
+Forecast chart lines and interval bands use the dedicated forecast tokens in
+`frontend/src/tokens.css`; do not introduce raw colors in a forecast view.
+Render the point estimate as a dashed series and the 80%/95% prediction
+intervals as separate low-opacity fills. Keep the forecast origin visibly
+marked. Forecast values are never presented without both interval levels and
+the muted uncertainty disclaimer, and model metrics remain adjacent to the
+naive baseline comparison.

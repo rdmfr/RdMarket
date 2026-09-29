@@ -3,11 +3,12 @@ name: Frontend CI
 on:
   push:
     branches:
-      - main
+      - master
       - develop
+      - feature/**
   pull_request:
     branches:
-      - main
+      - master
       - develop
 
 permissions:
