@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -53,7 +54,7 @@ func NewHTTPForecastingClient(baseURL, token string) *HTTPForecastingClient {
 	}
 }
 
-func (c *HTTPForecastingClient) SubmitJob(ctx context.Context, submission JobSubmission) error {
+func (c *HTTPForecastingClient) SubmitJob(ctx context.Context, submission JobSubmission) (resultErr error) {
 	if c.token == "" {
 		return fmt.Errorf("forecast internal token is not configured")
 	}
@@ -71,14 +72,18 @@ func (c *HTTPForecastingClient) SubmitJob(ctx context.Context, submission JobSub
 	if err != nil {
 		return fmt.Errorf("submit forecast job: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("close forecast job response: %w", err))
+		}
+	}()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("forecast service rejected job with status %d", resp.StatusCode)
 	}
 	return nil
 }
 
-func (c *HTTPForecastingClient) Models(ctx context.Context) ([]ModelInfo, error) {
+func (c *HTTPForecastingClient) Models(ctx context.Context) (models []ModelInfo, resultErr error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("create forecast models request: %w", err)
@@ -87,7 +92,11 @@ func (c *HTTPForecastingClient) Models(ctx context.Context) ([]ModelInfo, error)
 	if err != nil {
 		return nil, fmt.Errorf("retrieve forecast models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("close forecast models response: %w", err))
+		}
+	}()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("forecast service returned model catalog status %d", resp.StatusCode)
 	}

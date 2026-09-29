@@ -98,7 +98,7 @@ func LoadConfig() (*Config, error) {
 	} else {
 		if adminHash == "" {
 			// default dev bcrypt hash for "admin123"
-			adminHash = "$2a$10$a1gL5wE.qV3jPZ8bE6n9..w/c11aY3XgE6K2rV2Z3F7M1Yk5qUq55"
+			adminHash = "$2a$10$l7ofOGwF/s0KSIAgKdRz1.1FDfS8/h.LLopGGuL10YugLiZl69qPa"
 		}
 		if sessionSecret == "" {
 			sessionSecret = "dev-insecure-session-secret-key-32-chars-ok"

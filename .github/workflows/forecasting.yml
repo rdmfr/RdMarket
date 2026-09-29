@@ -36,8 +36,8 @@ jobs:
       - name: Install forecasting service
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[core,ml]"
-          python -m pip install pytest pip-audit
+          python -m pip install -e ".[core,ml,test]"
+          python -m pip install pip-audit
 
       - name: Run tests
         run: pytest
