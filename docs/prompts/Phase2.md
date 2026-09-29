@@ -56,7 +56,8 @@ Vue Dashboard
 - Python writes results to PostgreSQL. Go only reads results.
 - Python uses a dedicated database role: SELECT on `exchange_rates`, INSERT/UPDATE on forecasting tables only
   (provide the SQL in a migration or init script; build on the Phase 0 read-only role placeholder).
-- Python service structure:
+- Python service structure (the `forecasting/` folder is a new top-level folder at the repository root, next to
+  `frontend/` and `backend/`):
 
 ```
 forecasting/
@@ -209,7 +210,8 @@ forecasting service. Thin handlers, tests for handlers, service, repositories, a
 
 ## 10. Frontend
 
-Follow `CLAUDE.md` design and wording rules. New route and sidebar item "Forecast" with sections Forecast,
+Follow `CLAUDE.md` design and wording rules, and reuse the existing UI's components, tokens, and visual
+language ("Existing UI (preserve)" in `CLAUDE.md`). New route and sidebar item "Forecast" with sections Forecast,
 Backtests, Models. New series tokens (forecast line, interval bands) go into `tokens.css` and
 `docs/design-system.md`.
 
@@ -245,7 +247,9 @@ The Python service rejects requests without the token and is never reachable fro
 
 ## 12. Docker
 
-Add one service: `forecasting`. Multi-stage slim Dockerfile, pinned dependencies, non-root user,
+Add one service: `forecasting`, defined in the root `docker-compose.yml` and in the `deploy/compose.prod.yml`
+skeleton (no published port in production). Multi-stage slim Dockerfile at `forecasting/Dockerfile`, pinned
+dependencies, non-root user,
 healthcheck on `/health`, depends on PostgreSQL being healthy. The backend depends on forecasting only
 softly and must start and serve Phase 1 even if forecasting is down. Document resource limits in the README.
 
@@ -259,6 +263,13 @@ Frontend: Zod schemas, chart series and interval-band transformation, job pollin
 cleanup), formatter behavior for forecast numbers.
 E2E: launch a backtest from the UI, watch it complete, view the leaderboard, generate a forecast, view it on
 the chart, degraded state when the service is down. Synthetic data in tests only.
+
+CI: add `.github/workflows/forecasting.yml` (job id `forecasting`) that installs the pinned dependencies, runs
+pytest, and runs `pip-audit`. Triggers: push and pull_request on `main` and `develop`, no path filters, minimal
+`permissions: contents: read`. Add the `rdmarket-forecasting` image (`forecasting/Dockerfile`) to `docker.yml`
+with the same tags as the other images (`sha-<7 chars>` and `edge`). Extend `backend.yml`, `frontend.yml`, and
+`e2e.yml` only where the new Go, Vue, and E2E tests need it, keep their job ids stable, and list every
+workflow change in the final report.
 
 ## 14. Quality and honesty
 

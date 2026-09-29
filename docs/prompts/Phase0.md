@@ -36,8 +36,10 @@ and list it as an open decision in the final report.
 
 Monorepo:
 /frontend /backend /docs /deploy /e2e
-CLAUDE.md (already provided by the owner; do not rewrite it, only append
-learned repo-specific commands to a clearly marked section if needed)
+CLAUDE.md at the repository root (already provided by the owner; do not rewrite it, only append
+learned repo-specific commands to a clearly marked section if needed). Phase prompts live in docs/prompts/.
+The repository may already contain `.github/workflows/` files and a root `docker-compose.yml`: extend and
+reuse them, never recreate or rename them.
 Makefile (or Taskfile) with: setup, dev, build, test, lint, migrate-up,
 migrate-down, seed-dev, e2e, compose-up, compose-down, contract-check.
 
@@ -45,11 +47,21 @@ Quality gates:
 
 - Go: gofmt, go vet, golangci-lint (sensible minimal config), race-enabled
   tests
-- Frontend: ESLint, Prettier, vue-tsc type-check, Vitest
+- Frontend: npm (package-lock.json committed), ESLint, Prettier, vue-tsc type-check, Vitest
 - Pre-commit hooks (lightweight; secrets scan included)
-- CI workflow (GitHub Actions or equivalent) that runs on every push/PR:
-  lint, type-check, unit tests, migration test on a fresh Postgres, build
-  frontend and backend, contract check, docker compose smoke test
+- CI with GitHub Actions in `.github/workflows/`. The repository already contains `backend.yml`,
+  `frontend.yml`, and `docker.yml`: extend them, do not recreate or rename them, and keep their job ids
+  (`backend`, `frontend`, `docker`) because the owner requires them as status checks. Triggers: push and
+  pull_request on `main` and `develop`, no path filters. Minimal top-level `permissions: contents: read` and
+  a `concurrency` group (not for `docker.yml`).
+  - `backend.yml`: gofmt check, go vet, golangci-lint, race-enabled tests, integration tests against a
+    Postgres service container, migration test (fresh up, last migration down then up), build
+  - `frontend.yml`: `npm ci`, ESLint, Prettier check, vue-tsc, Vitest, build
+  - `repo-checks.yml` (job id `repo-checks`): secret scan, contract check, docker compose config and smoke
+    test, and the hard-coded UI string and forbidden style checks that are not part of the frontend lint
+  - `e2e.yml` (job id `e2e`): Playwright smoke tests against the compose test profile
+  - `docker.yml`: image publishing (defined further in Phase 5). In this phase only make sure both
+    Dockerfiles build
 - .gitignore, .editorconfig, .dockerignore, .env.example (no real secrets)
 
 ================================================== 2. CONFIGURATION
@@ -154,7 +166,16 @@ Guard rails:
 ================================================== 7. FRONTEND FOUNDATION
 ==================================================
 
-Scaffold only; no product screens beyond a placeholder dashboard shell.
+The frontend UI already exists in `frontend/` (created before Phase 0) and its visual design is preserved (see
+"Existing UI (preserve)" in `CLAUDE.md`). Start with an audit, not a scaffold. Inventory the existing views,
+components, tokens, fonts, charts, stores, services, and schemas, and write the findings to
+`docs/design-audit.md`: what exists, which Phase 0 items it already covers, deviations from the anti-slop
+rules, and any mock or hard-coded data, LLM SDK usage or API keys, external scripts or fonts (including
+import maps and CDN links), and forbidden wording. For every item in this section: reuse the existing
+implementation if one exists and works and extend it; create it only if it is missing. Do not restyle,
+re-layout, rename, or replace existing components or screens. Existing files may be changed only to fix bugs,
+remove hard-coded or fabricated data, replace forbidden wording, self-host external assets with identical
+appearance, remove LLM calls and frontend secrets, and wire to the API.
 
 - Folder structure: components/{market,charts,indicators,common}, views,
   stores, services, schemas, types, composables, router, layouts, i18n.
@@ -165,19 +186,24 @@ Scaffold only; no product screens beyond a placeholder dashboard shell.
   Supported locales per the DATA SOURCE DECISION. Number/date/currency
   formatting through one shared formatter module using Intl with the active
   locale and timezone. Lint rule or test that fails on hard-coded UI strings
-  in templates where practical.
+  in templates where practical, applied to new or changed files only. Existing hard-coded strings are listed in
+  `docs/design-audit.md` and migrated only when their file is otherwise touched or the owner approves a
+  dedicated task.
 - Design tokens:
   - tokens.css with dark (default) and light themes, mapped into the Tailwind
     theme
   - self-hosted fonts (UI: IBM Plex Sans; numbers: JetBrains Mono or IBM Plex
     Mono, tabular-nums)
-  - Enforcement: lint rule (stylelint/ESLint) that fails on raw hex/rgb
-    colors outside tokens.css, on box-shadow, on gradients, and on radius
-    greater than 4px
-- Shared primitives, built and tested now: Panel (with header strip),
-  StatRow, ValueChange (signed, glyph, not color alone), StatusBadge,
-  SegmentedControl, ChipToggle, SkeletonBlock, ErrorState, EmptyState,
-  SimulatedDataBanner.
+  - Enforcement: lint rules (stylelint/ESLint) for raw hex/rgb colors outside tokens.css, box-shadow,
+    gradients, and radius greater than 4px. They are errors for files created after Phase 0 and warnings for
+    files that already existed (one baseline list, for example ESLint/stylelint overrides). CI must not fail
+    because of the existing UI. The existing tokens.css is extended, not replaced, and new token values that
+    represent existing colors keep the exact same value.
+- Shared primitives: Panel (with header strip), StatRow, ValueChange (signed, glyph, not color alone),
+  StatusBadge, SegmentedControl, ChipToggle, SkeletonBlock, ErrorState, EmptyState, SimulatedDataBanner. For
+  each one, reuse an existing equivalent component if there is one (document the mapping in
+  `docs/design-system.md`, do not rename or restyle it). Build a primitive only if it is missing, in the
+  existing visual style, and add tests for the ones you build or touch.
 - Layout shell: sidebar (icon rail), top bar (title, instrument, data status,
   timestamp, theme toggle, user menu with login state), router with auth
   guard.
@@ -198,17 +224,18 @@ Scaffold only; no product screens beyond a placeholder dashboard shell.
 - E2E: Playwright in /e2e with a docker-compose test profile. Implement smoke
   tests now: app loads, health/ready pass, login works, simulated banner
   appears when mock is active, theme toggle persists.
-- Visual review loop: Playwright captures screenshots of the shell and every
-  primitive (dark and light, desktop and tablet widths) into
-  /e2e/screenshots. Review them against the anti-slop checklist in CLAUDE.md
-  and fix violations before finishing.
+- Visual review loop: Playwright captures screenshots of the existing shell and primitives (dark and light,
+  desktop and tablet widths) into /e2e/screenshots as the visual baseline. Review NEW or CHANGED components
+  against the anti-slop checklist in CLAUDE.md and fix violations. Violations in existing screens are listed in
+  `docs/design-audit.md`, not fixed.
 
 ================================================== 9. DOCKER
 ==================================================
 
 Services: frontend, backend, postgres only. Multi-stage builds, non-root
 users, pinned base images, healthchecks, restart policies, named volumes for
-Postgres. Separate dev and production compose files (dev with hot reload).
+Postgres. Development compose is the existing root `docker-compose.yml` (hot reload). The production compose skeleton
+is `deploy/compose.prod.yml` (hardened in Phase 5).
 Do not publish the database port in production compose.
 
 ================================================== 10. DOCUMENTATION
@@ -222,7 +249,8 @@ Do not publish the database port in production compose.
 - docs/decisions/0002-migrations-and-numeric-types.md
 - docs/decisions/0003-openapi-as-contract.md
 - docs/database.md, docs/design-system.md (tokens, type scale, primitives,
-  lint rules).
+  lint rules; if the file already exists from the moved DESIGN.md, extend it and document the existing look
+  as it is).
 
 ================================================== 11. FINAL DELIVERABLE AND VERIFICATION
 ==================================================

@@ -3,7 +3,11 @@
 Read `CLAUDE.md`, `README.md`, `docs/`, and the Phase 0 foundation first. Follow `CLAUDE.md` for the whole
 phase (architecture, data integrity, wording, design, security).
 
-Reuse what Phase 0 already provides. Do not recreate or restyle it: migrations tool, `exchange_rates`
+The frontend UI already exists and its visual design is preserved (see "Existing UI (preserve)" in
+`CLAUDE.md`). Reuse, wire to the real API, and extend the existing views and components; add only what is
+missing. Where the layout details in sections 2, 4, and 10 of this prompt differ from the existing UI, keep
+the existing look and list the differences in the final report. Reuse what Phase 0 already provides. Do not
+recreate or restyle it: migrations tool, `exchange_rates`
 table, provider interface and capability model, data-validation layer, ingestion-run records, auth,
 envelope and error-code registry, OpenAPI + contract check, time module, formatter, i18n, tokens,
 primitives, chart wrapper and theme, Playwright setup.
@@ -201,7 +205,8 @@ parsing, auto-refresh timer behavior, and formatter behavior.
 
 E2E (Playwright): dashboard loads, change range triggers a new request and the chart updates, indicator
 toggles, error state and Retry, Data Sources page, settings persistence. Use synthetic data in tests only.
-Capture screenshots and review them against the anti-slop checklist in `CLAUDE.md`.
+Capture screenshots; review new or changed screens against the anti-slop checklist in `CLAUDE.md`, and only
+report violations in existing screens (`docs/design-audit.md`).
 
 ## 13. Documentation
 

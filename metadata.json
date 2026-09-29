@@ -1,0 +1,6 @@
+{
+  "name": "RdMarket Intelligence",
+  "description": "USD/IDR market monitoring dashboard focused on collecting, storing, analyzing, and visualizing USD to Indonesian Rupiah exchange-rate data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

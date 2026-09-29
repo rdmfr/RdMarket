@@ -313,7 +313,8 @@ degraded state.
 
 ## 12. Frontend
 
-Follow `CLAUDE.md` design and wording rules. New colors (alert severities, event markers, series) go into
+Follow `CLAUDE.md` design and wording rules, and reuse the existing UI's components, tokens, and visual
+language ("Existing UI (preserve)" in `CLAUDE.md`). New colors (alert severities, event markers, series) go into
 `tokens.css` and `docs/design-system.md`, never hard-coded. Severity never relies on color alone (text label
 
 - glyph). Sidebar additions: Economy, Alerts, Intelligence. Top bar: alert bell with the real unread count.
