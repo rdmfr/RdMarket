@@ -44,7 +44,7 @@ func (p *CsvImportProvider) LoadFromCSVFile(filePath string) error {
 	if err != nil {
 		return fmt.Errorf("open csv file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	rates, err := p.ParseCSV(f)
 	if err != nil {

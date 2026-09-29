@@ -59,7 +59,7 @@ func (p *FrankfurterProvider) FetchCurrentRate(base, target string) (*models.Exc
 	if err != nil {
 		return nil, fmt.Errorf("external provider connection error: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("external provider HTTP error status: %d", resp.StatusCode)
@@ -97,7 +97,7 @@ func (p *FrankfurterProvider) FetchHistoricalRates(base, target string, start, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch history from provider: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("provider returned status: %d", resp.StatusCode)

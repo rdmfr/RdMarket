@@ -18,7 +18,7 @@ func TestMigrationsUpAndDown(t *testing.T) {
 	if err != nil {
 		t.Skipf("cannot open database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := db.Ping(); err != nil {
 		t.Skipf("cannot ping database: %v", err)

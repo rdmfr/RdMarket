@@ -59,7 +59,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("[RdMarket] Failed to connect to database: %v", err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	// Apply migrations on startup
 	if err := migrations.Up(sqlDB); err != nil {
@@ -133,7 +133,7 @@ func runMigrateUp(cfg *config.Config) {
 	if err != nil {
 		log.Fatalf("[RdMarket] DB connection error: %v", err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	if err := migrations.Up(sqlDB); err != nil {
 		log.Fatalf("[RdMarket] Migration up failed: %v", err)
@@ -147,7 +147,7 @@ func runMigrateDown(cfg *config.Config) {
 	if err != nil {
 		log.Fatalf("[RdMarket] DB connection error: %v", err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	if err := migrations.Down(sqlDB); err != nil {
 		log.Fatalf("[RdMarket] Migration down failed: %v", err)
@@ -164,7 +164,7 @@ func runSeedDev(cfg *config.Config) {
 	if err != nil {
 		log.Fatalf("[RdMarket] DB connection error: %v", err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	repo := repositories.NewExchangeRateRepository(db)
 	mockProv := providers.NewMockProvider(16280.0)
