@@ -14,7 +14,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   docker:
@@ -22,7 +22,6 @@ jobs:
 
     permissions:
       contents: read
-      packages: write
 
     steps:
       - name: Checkout
@@ -30,29 +29,8 @@ jobs:
 
       - name: Build frontend image
         run: |
-          docker build -t ghcr.io/rdmfr/rdmarket-frontend:test ./frontend
+          docker build -t rdmarket-frontend:test ./frontend
 
       - name: Build backend image
         run: |
-          docker build -t ghcr.io/rdmfr/rdmarket-backend:test ./backend
-
-      - name: Login to GHCR (main/master push only)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tag and push images (main/master push only)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        run: |
-          docker tag ghcr.io/rdmfr/rdmarket-frontend:test ghcr.io/rdmfr/rdmarket-frontend:sha-${GITHUB_SHA::7}
-          docker tag ghcr.io/rdmfr/rdmarket-frontend:test ghcr.io/rdmfr/rdmarket-frontend:edge
-          docker push ghcr.io/rdmfr/rdmarket-frontend:sha-${GITHUB_SHA::7}
-          docker push ghcr.io/rdmfr/rdmarket-frontend:edge
-
-          docker tag ghcr.io/rdmfr/rdmarket-backend:test ghcr.io/rdmfr/rdmarket-backend:sha-${GITHUB_SHA::7}
-          docker tag ghcr.io/rdmfr/rdmarket-backend:test ghcr.io/rdmfr/rdmarket-backend:edge
-          docker push ghcr.io/rdmfr/rdmarket-backend:sha-${GITHUB_SHA::7}
-          docker push ghcr.io/rdmfr/rdmarket-backend:edge
+          docker build -t rdmarket-backend:test ./backend
