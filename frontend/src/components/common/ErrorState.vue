@@ -15,7 +15,7 @@
       @click="$emit('retry')"
       class="mt-1 px-3 py-1 bg-raised hover:bg-border text-primary border border-border rounded-xs text-[11px] font-mono cursor-pointer transition-colors"
     >
-      Retry
+      {{ retryLabel }}
     </button>
   </div>
 </template>
@@ -26,10 +26,12 @@ withDefaults(
     message?: string;
     cause?: string;
     showRetry?: boolean;
+    retryLabel?: string;
   }>(),
   {
     message: 'Unable to retrieve current market data.',
     showRetry: true,
+    retryLabel: 'Retry',
   }
 );
 
