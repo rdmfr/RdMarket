@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rdmarket-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: rdmarket
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rdmarket-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/rdmarket?sslmode=disable
+      EXCHANGE_RATE_API_URL: https://api.frankfurter.dev/v1
+      EXCHANGE_RATE_API_KEY: ""
+      APP_ENV: production
+      PORT: 8080
+      SHORT_TERM_THRESHOLD: 0.002
+      TREND_30D_THRESHOLD: 0.005
+      VOLATILITY_LOW_LIMIT: 0.004
+      VOLATILITY_HIGH_LIMIT: 0.010
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rdmarket-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  pgdata:
