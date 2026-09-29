@@ -1,15 +1,17 @@
 package services
 
 import (
+	"errors"
 	"math"
 	"rdmarket-intelligence/backend/internal/config"
 	"rdmarket-intelligence/backend/internal/models"
 	"rdmarket-intelligence/backend/internal/providers"
 	"rdmarket-intelligence/backend/internal/repositories"
-	"sort"
 	"strings"
 	"time"
 )
+
+var ErrInvalidRange = errors.New("invalid market data range")
 
 type MarketService interface {
 	Ready() error
@@ -17,6 +19,7 @@ type MarketService interface {
 	GetHistory(currencyPair, rangeStr, startStr, endStr string) (*models.HistoricalRateData, error)
 	GetStatistics(currencyPair string) (*models.StatisticsData, error)
 	GetIndicators(currencyPair, rangeStr string) (*models.IndicatorsData, error)
+	GetCondition(currencyPair, rangeStr string) (*models.MarketCondition, error)
 	GetDataSources() ([]models.DataSourceInfo, error)
 	SyncExternalData(currencyPair string) error
 	SeedInitialDataIfEmpty(currencyPair string) error
@@ -51,11 +54,12 @@ func (s *DefaultMarketService) GetCurrentRate(currencyPair string) (*models.Curr
 		return nil, err
 	}
 	if latest == nil {
-		// Attempt sync if empty
-		_ = s.SyncExternalData(currencyPair)
+		if err := s.SyncExternalData(currencyPair); err != nil {
+			return nil, err
+		}
 		latest, err = s.repo.GetLatest(currencyPair)
 		if err != nil || latest == nil {
-			return nil, nil
+			return nil, err
 		}
 	}
 
@@ -103,6 +107,7 @@ func (s *DefaultMarketService) parseRange(rangeStr, startStr, endStr string) (ti
 		if !start.IsZero() && !end.IsZero() {
 			return start, end
 		}
+
 	}
 
 	end = now
@@ -128,9 +133,36 @@ func (s *DefaultMarketService) parseRange(rangeStr, startStr, endStr string) (ti
 	return start, end
 }
 
+func (s *DefaultMarketService) parseRequestedRange(rangeStr, startStr, endStr string) (time.Time, time.Time, error) {
+	if startStr != "" || endStr != "" {
+		if startStr == "" || endStr == "" {
+			return time.Time{}, time.Time{}, ErrInvalidRange
+		}
+		start, err := time.Parse("2006-01-02", startStr)
+		if err != nil {
+			return time.Time{}, time.Time{}, ErrInvalidRange
+		}
+		end, err := time.Parse("2006-01-02", endStr)
+		if err != nil || end.Before(start) {
+			return time.Time{}, time.Time{}, ErrInvalidRange
+		}
+		return start.UTC(), end.UTC().Add(24*time.Hour - time.Nanosecond), nil
+	}
+	switch strings.ToUpper(rangeStr) {
+	case "1D", "7D", "1M", "3M", "6M", "1Y", "5Y":
+		start, end := s.parseRange(rangeStr, "", "")
+		return start, end, nil
+	default:
+		return time.Time{}, time.Time{}, ErrInvalidRange
+	}
+}
+
 func (s *DefaultMarketService) GetHistory(currencyPair, rangeStr, startStr, endStr string) (*models.HistoricalRateData, error) {
 	currencyPair = strings.ToUpper(strings.TrimSpace(currencyPair))
-	start, end := s.parseRange(rangeStr, startStr, endStr)
+	start, end, err := s.parseRequestedRange(rangeStr, startStr, endStr)
+	if err != nil {
+		return nil, err
+	}
 
 	rates, err := s.repo.GetHistory(currencyPair, start, end)
 	if err != nil {
@@ -138,16 +170,34 @@ func (s *DefaultMarketService) GetHistory(currencyPair, rangeStr, startStr, endS
 	}
 
 	if len(rates) == 0 {
-		// Attempt sync and retry once
-		_ = s.SyncExternalData(currencyPair)
-		rates, err = s.repo.GetHistory(currencyPair, start, end)
-		if err != nil {
-			return nil, err
-		}
+		return &models.HistoricalRateData{
+			CurrencyPair: currencyPair, Range: rangeStr, Points: []models.HistoricalPoint{},
+			Resolution: "raw", AggregationMethod: "none",
+		}, nil
 	}
 
+	sourcePointCount := len(rates)
+	resolution := "raw"
+	aggregationMethod := "none"
+	pointLimit := s.cfg.HistoryPointLimit
+	if pointLimit <= 0 {
+		pointLimit = 1500
+	}
+	if len(rates) > pointLimit {
+		bucketSize := (len(rates) + pointLimit - 1) / pointLimit
+		downsampled := make([]models.ExchangeRate, 0, pointLimit)
+		for i := 0; i < len(rates); i += bucketSize {
+			end := i + bucketSize
+			if end > len(rates) {
+				end = len(rates)
+			}
+			downsampled = append(downsampled, rates[end-1])
+		}
+		rates = downsampled
+		resolution = "bucketed"
+		aggregationMethod = "last_value"
+	}
 	var points []models.HistoricalPoint
-	missingCount := 0
 
 	for _, r := range rates {
 		rateVal := r.Rate
@@ -158,11 +208,14 @@ func (s *DefaultMarketService) GetHistory(currencyPair, rangeStr, startStr, endS
 	}
 
 	return &models.HistoricalRateData{
-		CurrencyPair: currencyPair,
-		Range:        rangeStr,
-		Points:       points,
-		TotalPoints:  len(points),
-		MissingCount: missingCount,
+		CurrencyPair:      currencyPair,
+		Range:             rangeStr,
+		Points:            points,
+		TotalPoints:       len(points),
+		SourcePointCount:  sourcePointCount,
+		MissingCount:      0,
+		Resolution:        resolution,
+		AggregationMethod: aggregationMethod,
 	}, nil
 }
 
@@ -175,7 +228,10 @@ func (s *DefaultMarketService) GetIndicators(currencyPair, rangeStr string) (*mo
 	currencyPair = strings.ToUpper(strings.TrimSpace(currencyPair))
 	// Need at least 90+ days prior to range start for SMA 90
 	now := time.Now().UTC()
-	start, _ := s.parseRange(rangeStr, "", "")
+	start, _, err := s.parseRequestedRange(rangeStr, "", "")
+	if err != nil {
+		return nil, err
+	}
 	fetchStart := start.AddDate(0, 0, -120) // Buffer for 90-day moving average calculation
 
 	rates, err := s.repo.GetHistory(currencyPair, fetchStart, now)
@@ -278,6 +334,14 @@ func (s *DefaultMarketService) GetIndicators(currencyPair, rangeStr string) (*mo
 	}, nil
 }
 
+func (s *DefaultMarketService) GetCondition(currencyPair, rangeStr string) (*models.MarketCondition, error) {
+	indicators, err := s.GetIndicators(currencyPair, rangeStr)
+	if err != nil {
+		return nil, err
+	}
+	return &indicators.MarketCondition, nil
+}
+
 func calculateSMA(rates []models.ExchangeRate, window int, filterStart time.Time) []models.HistoricalPoint {
 	var points []models.HistoricalPoint
 	if len(rates) < window {
@@ -362,13 +426,17 @@ func (s *DefaultMarketService) SyncExternalData(currencyPair string) error {
 	}
 
 	if len(rates) > 0 {
-		_ = s.repo.SaveBatch(rates)
+		if err := s.repo.SaveBatch(rates); err != nil {
+			return err
+		}
 	}
 
 	// Also fetch current
 	latest, err := s.provider.FetchCurrentRate(base, target)
 	if err == nil && latest != nil {
-		_ = s.repo.Save(latest)
+		if err := s.repo.Save(latest); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -392,13 +460,5 @@ func (s *DefaultMarketService) SeedInitialDataIfEmpty(currencyPair string) error
 		}
 	}
 
-	// If external provider failed (e.g. offline/isolated environment), use MockProvider seed
-	mock := providers.NewMockProvider(16280.0)
-	now := time.Now().UTC()
-	start := now.AddDate(-2, 0, 0)
-	mockRates, _ := mock.FetchHistoricalRates("USD", "IDR", start, now)
-	sort.Slice(mockRates, func(i, j int) bool {
-		return mockRates[i].Timestamp.Before(mockRates[j].Timestamp)
-	})
-	return s.repo.SaveBatch(mockRates)
+	return err
 }

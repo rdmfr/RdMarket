@@ -15,7 +15,7 @@ The owner creates `develop` and feature branches. This repository does not creat
 | Stage | What | Where it is built |
 | :-- | :-- | :-- |
 | 1 CI | Tests and build on push and pull request for `main` and `develop` | `backend.yml`, `frontend.yml` |
-| 2 Container | On push to `main`, build images and push to GHCR; no deployment | `docker.yml` |
+| 2 Container | On push to `main`, build and publish images to GHCR; pull requests build without publishing | `docker.yml` |
 | 3 Staging | Deploy `develop` to a staging server | Phase 5, owner decision |
 | 4 Production | Deploy `main` to production with manual approval | Phase 5 |
 | 5 Advanced | Integration tests, security scans, and health checks | Phase 5 |
@@ -43,4 +43,4 @@ Images use commit-specific `sha-` tags and the moving `edge` tag. `latest` is re
 
 ## Current limitations
 
-The backend and frontend Dockerfiles are not present yet, so `docker.yml` cannot build images until Phase 0 adds them. The frontend has an existing peer conflict between Vite 8 and esbuild 0.25; the npm lockfile was created using legacy peer resolution, but dependency cleanup is outside this layout task.
+The E2E workflow starts the development Compose stack and runs the Playwright suite. The frontend has an existing peer conflict between Vite 8 and esbuild 0.25; the npm lockfile was created using legacy peer resolution, but dependency cleanup is outside this layout task.

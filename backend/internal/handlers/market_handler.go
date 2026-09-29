@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"rdmarket-intelligence/backend/internal/models"
 	"rdmarket-intelligence/backend/internal/services"
 	"time"
@@ -29,6 +30,7 @@ func (h *MarketHandler) RegisterRoutes(router fiber.Router) {
 	market.Get("/usdidr/history", h.GetHistory)
 	market.Get("/usdidr/statistics", h.GetStatistics)
 	market.Get("/usdidr/indicators", h.GetIndicators)
+	market.Get("/usdidr/condition", h.GetCondition)
 
 	// Data sources endpoint
 	v1.Get("/data-sources", h.GetDataSources)
@@ -86,6 +88,11 @@ func (h *MarketHandler) GetHistory(c *fiber.Ctx) error {
 
 	data, err := h.service.GetHistory("USD/IDR", rangeParam, startParam, endParam)
 	if err != nil {
+		if errors.Is(err, services.ErrInvalidRange) {
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(models.NewErrorResponse(
+				"INVALID_RANGE", "The requested market data range is invalid", nil,
+			))
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(models.NewErrorResponse(
 			"HISTORY_FETCH_ERROR",
 			"Failed to retrieve historical exchange rate data",
@@ -93,9 +100,12 @@ func (h *MarketHandler) GetHistory(c *fiber.Ctx) error {
 		))
 	}
 	return c.Status(fiber.StatusOK).JSON(models.NewSuccessResponse(data, fiber.Map{
-		"range":        rangeParam,
-		"total_points": data.TotalPoints,
-		"generated_at": time.Now().UTC(),
+		"range":              rangeParam,
+		"total_points":       data.TotalPoints,
+		"source_point_count": data.SourcePointCount,
+		"resolution":         data.Resolution,
+		"aggregation_method": data.AggregationMethod,
+		"generated_at":       time.Now().UTC(),
 	}))
 }
 
@@ -118,6 +128,11 @@ func (h *MarketHandler) GetIndicators(c *fiber.Ctx) error {
 	rangeParam := c.Query("range", "1M")
 	data, err := h.service.GetIndicators("USD/IDR", rangeParam)
 	if err != nil {
+		if errors.Is(err, services.ErrInvalidRange) {
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(models.NewErrorResponse(
+				"INVALID_RANGE", "The requested market data range is invalid", nil,
+			))
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(models.NewErrorResponse(
 			"INDICATORS_ERROR",
 			"Failed to compute statistical indicators",
@@ -127,6 +142,24 @@ func (h *MarketHandler) GetIndicators(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(models.NewSuccessResponse(data, fiber.Map{
 		"range":        rangeParam,
 		"generated_at": time.Now().UTC(),
+	}))
+}
+
+func (h *MarketHandler) GetCondition(c *fiber.Ctx) error {
+	rangeParam := c.Query("range", "1M")
+	data, err := h.service.GetCondition("USD/IDR", rangeParam)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidRange) {
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(models.NewErrorResponse(
+				"INVALID_RANGE", "The requested market data range is invalid", nil,
+			))
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(models.NewErrorResponse(
+			"CONDITION_ERROR", "Failed to compute market condition", nil,
+		))
+	}
+	return c.Status(fiber.StatusOK).JSON(models.NewSuccessResponse(data, fiber.Map{
+		"range": rangeParam, "generated_at": time.Now().UTC(),
 	}))
 }
 

@@ -31,7 +31,7 @@ const isSimulated = computed(() => {
   return (
     marketStore.dataSources.some((d) => d.provider.toLowerCase().includes('mock')) ||
     marketStore.currentRate?.source.toLowerCase().includes('mock') ||
-    true // default true in dev/test when mock is active
+    false
   );
 });
 </script>

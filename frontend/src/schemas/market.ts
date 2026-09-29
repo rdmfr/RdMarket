@@ -26,7 +26,10 @@ export const HistoricalRateSchema = z.object({
   range: z.string(),
   points: z.array(HistoricalPointSchema),
   total_points: z.number(),
+  source_point_count: z.number().optional(),
   missing_count: z.number().default(0),
+  resolution: z.string().optional(),
+  aggregation_method: z.string().optional(),
 });
 
 export const StatisticsSchema = z.object({
@@ -77,6 +80,15 @@ export const DataSourceSchema = z.object({
   number_of_observations: z.number(),
   base_currency: z.string(),
   target_currency: z.string(),
+  capabilities: z.object({
+    supports_intraday: z.boolean(),
+    supports_history: z.boolean(),
+    max_history_days: z.number(),
+    granularity: z.string(),
+    rate_limit: z.string(),
+    requires_api_key: z.boolean(),
+    license_note: z.string(),
+  }),
 });
 
 export function createEnvelopeSchema<T extends z.ZodTypeAny>(dataSchema: T) {

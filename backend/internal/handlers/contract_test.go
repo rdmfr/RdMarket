@@ -88,6 +88,7 @@ func TestOpenAPIContract(t *testing.T) {
 		{"GET", "/api/v1/market/usdidr/history?range=7D", http.StatusOK},
 		{"GET", "/api/v1/market/usdidr/statistics", http.StatusOK},
 		{"GET", "/api/v1/market/usdidr/indicators?range=1M", http.StatusOK},
+		{"GET", "/api/v1/market/usdidr/condition?range=1M", http.StatusOK},
 		{"GET", "/api/v1/auth/me", http.StatusOK},
 	}
 

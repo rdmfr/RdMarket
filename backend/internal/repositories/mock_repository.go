@@ -63,7 +63,7 @@ func (m *MockExchangeRateRepository) GetLatest(currencyPair string) (*models.Exc
 	defer m.mu.RUnlock()
 
 	for i := len(m.rates) - 1; i >= 0; i-- {
-		if m.rates[i].CurrencyPair == currencyPair {
+		if m.rates[i].CurrencyPair == currencyPair && m.rates[i].QualityStatus != "suspect" && m.rates[i].QualityStatus != "rejected" {
 			r := m.rates[i]
 			return &r, nil
 		}
@@ -77,7 +77,7 @@ func (m *MockExchangeRateRepository) GetPreviousClose(currencyPair string, befor
 
 	beforeUTC := beforeTime.UTC()
 	for i := len(m.rates) - 1; i >= 0; i-- {
-		if m.rates[i].CurrencyPair == currencyPair && m.rates[i].Timestamp.Before(beforeUTC) {
+		if m.rates[i].CurrencyPair == currencyPair && m.rates[i].Timestamp.Before(beforeUTC) && m.rates[i].QualityStatus != "suspect" && m.rates[i].QualityStatus != "rejected" {
 			r := m.rates[i]
 			return &r, nil
 		}
@@ -93,7 +93,7 @@ func (m *MockExchangeRateRepository) GetHistory(currencyPair string, start time.
 	startUTC := start.UTC()
 	endUTC := end.UTC()
 	for _, r := range m.rates {
-		if r.CurrencyPair == currencyPair && !r.Timestamp.Before(startUTC) && !r.Timestamp.After(endUTC) {
+		if r.CurrencyPair == currencyPair && !r.Timestamp.Before(startUTC) && !r.Timestamp.After(endUTC) && r.QualityStatus != "suspect" && r.QualityStatus != "rejected" {
 			result = append(result, r)
 		}
 	}

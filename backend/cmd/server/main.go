@@ -12,6 +12,7 @@ import (
 	"rdmarket-intelligence/backend/internal/providers"
 	"rdmarket-intelligence/backend/internal/repositories"
 	"rdmarket-intelligence/backend/internal/services"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/driver/postgres"
@@ -86,6 +87,18 @@ func main() {
 
 	// Initialize Service
 	service := services.NewMarketService(repo, provider, cfg)
+	if err := service.SeedInitialDataIfEmpty("USD/IDR"); err != nil {
+		log.Printf("[RdMarket] Initial market-data sync unavailable: %v", err)
+	}
+	go func() {
+		ticker := time.NewTicker(time.Duration(cfg.IngestionIntervalMinutes) * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := service.SyncExternalData("USD/IDR"); err != nil {
+				log.Printf("[RdMarket] Scheduled market-data sync failed: %v", err)
+			}
+		}
+	}()
 
 	// Setup Fiber App
 	app := fiber.New(fiber.Config{

@@ -21,7 +21,10 @@ export interface HistoricalRate {
   range: string;
   points: HistoricalPoint[];
   total_points: number;
+  source_point_count?: number;
   missing_count: number;
+  resolution?: string;
+  aggregation_method?: string;
 }
 
 export interface Statistics {

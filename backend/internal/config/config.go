@@ -23,10 +23,12 @@ type Config struct {
 	AuthRequireRead    bool   `json:"auth_require_read"`
 
 	// Market condition thresholds (transparent rule-based parameters)
-	ShortTermThreshold  float64 `json:"short_term_threshold"`
-	Trend30DThreshold   float64 `json:"trend_30d_threshold"`
-	VolatilityLowLimit  float64 `json:"volatility_low_limit"`
-	VolatilityHighLimit float64 `json:"volatility_high_limit"`
+	ShortTermThreshold       float64 `json:"short_term_threshold"`
+	Trend30DThreshold        float64 `json:"trend_30d_threshold"`
+	VolatilityLowLimit       float64 `json:"volatility_low_limit"`
+	VolatilityHighLimit      float64 `json:"volatility_high_limit"`
+	IngestionIntervalMinutes int     `json:"ingestion_interval_minutes"`
+	HistoryPointLimit        int     `json:"history_point_limit"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -106,23 +108,33 @@ func LoadConfig() (*Config, error) {
 	trend30DThreshold := getEnvFloat("TREND_30D_THRESHOLD", 0.005)
 	volLowLimit := getEnvFloat("VOLATILITY_LOW_LIMIT", 0.004)
 	volHighLimit := getEnvFloat("VOLATILITY_HIGH_LIMIT", 0.010)
+	ingestionIntervalMinutes := getEnvInt("INGESTION_INTERVAL_MINUTES", 15)
+	if ingestionIntervalMinutes < 1 {
+		return nil, fmt.Errorf("INGESTION_INTERVAL_MINUTES must be at least 1")
+	}
+	historyPointLimit := getEnvInt("HISTORY_POINT_LIMIT", 1500)
+	if historyPointLimit < 100 {
+		return nil, fmt.Errorf("HISTORY_POINT_LIMIT must be at least 100")
+	}
 
 	return &Config{
-		DatabaseURL:         dbURL,
-		ExchangeRateAPIURL:  apiURL,
-		ExchangeRateAPIKey:  apiKey,
-		Provider:            provider,
-		AppEnv:              appEnv,
-		Port:                port,
-		CORSAllowedOrigins:  corsOrigins,
-		AdminUsername:       adminUser,
-		AdminPasswordHash:   adminHash,
-		SessionSecret:       sessionSecret,
-		AuthRequireRead:     authReqRead,
-		ShortTermThreshold:  shortTermThreshold,
-		Trend30DThreshold:   trend30DThreshold,
-		VolatilityLowLimit:  volLowLimit,
-		VolatilityHighLimit: volHighLimit,
+		DatabaseURL:              dbURL,
+		ExchangeRateAPIURL:       apiURL,
+		ExchangeRateAPIKey:       apiKey,
+		Provider:                 provider,
+		AppEnv:                   appEnv,
+		Port:                     port,
+		CORSAllowedOrigins:       corsOrigins,
+		AdminUsername:            adminUser,
+		AdminPasswordHash:        adminHash,
+		SessionSecret:            sessionSecret,
+		AuthRequireRead:          authReqRead,
+		ShortTermThreshold:       shortTermThreshold,
+		Trend30DThreshold:        trend30DThreshold,
+		VolatilityLowLimit:       volLowLimit,
+		VolatilityHighLimit:      volHighLimit,
+		IngestionIntervalMinutes: ingestionIntervalMinutes,
+		HistoryPointLimit:        historyPointLimit,
 	}, nil
 }
 
@@ -179,6 +191,15 @@ func getEnvFloat(key string, fallback float64) float64 {
 	if val := os.Getenv(key); val != "" {
 		if f, err := strconv.ParseFloat(val, 64); err == nil {
 			return f
+		}
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if val := os.Getenv(key); val != "" {
+		if i, err := strconv.Atoi(val); err == nil {
+			return i
 		}
 	}
 	return fallback

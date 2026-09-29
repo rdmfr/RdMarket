@@ -63,6 +63,7 @@ func (r *GormExchangeRateRepository) SaveBatch(rates []models.ExchangeRate) erro
 func (r *GormExchangeRateRepository) GetLatest(currencyPair string) (*models.ExchangeRate, error) {
 	var rate models.ExchangeRate
 	err := r.db.Where("currency_pair = ?", currencyPair).
+		Where("quality_status = ?", "ok").
 		Order("timestamp desc").
 		First(&rate).Error
 	if err != nil {
@@ -76,7 +77,7 @@ func (r *GormExchangeRateRepository) GetLatest(currencyPair string) (*models.Exc
 
 func (r *GormExchangeRateRepository) GetPreviousClose(currencyPair string, beforeTime time.Time) (*models.ExchangeRate, error) {
 	var rate models.ExchangeRate
-	err := r.db.Where("currency_pair = ? AND timestamp < ?", currencyPair, beforeTime.UTC()).
+	err := r.db.Where("currency_pair = ? AND timestamp < ? AND quality_status = ?", currencyPair, beforeTime.UTC(), "ok").
 		Order("timestamp desc").
 		First(&rate).Error
 	if err != nil {
@@ -90,7 +91,7 @@ func (r *GormExchangeRateRepository) GetPreviousClose(currencyPair string, befor
 
 func (r *GormExchangeRateRepository) GetHistory(currencyPair string, start time.Time, end time.Time) ([]models.ExchangeRate, error) {
 	var rates []models.ExchangeRate
-	err := r.db.Where("currency_pair = ? AND timestamp >= ? AND timestamp <= ?", currencyPair, start.UTC(), end.UTC()).
+	err := r.db.Where("currency_pair = ? AND timestamp >= ? AND timestamp <= ? AND quality_status = ?", currencyPair, start.UTC(), end.UTC(), "ok").
 		Order("timestamp asc").
 		Find(&rates).Error
 	return rates, err
@@ -139,7 +140,7 @@ func (r *GormExchangeRateRepository) GetStatistics(currencyPair string) (*models
 
 	// Fetch 1-year history for aggregates
 	var yearRates []models.ExchangeRate
-	err = r.db.Where("currency_pair = ? AND timestamp >= ?", currencyPair, oneYearAgo).
+	err = r.db.Where("currency_pair = ? AND timestamp >= ? AND quality_status = ?", currencyPair, oneYearAgo, "ok").
 		Order("timestamp asc").
 		Find(&yearRates).Error
 	if err != nil {

@@ -1,18 +1,43 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { z } from 'zod';
 import type { TimeRange } from '@/types/market';
 
+const StoredSettingsSchema = z.object({
+  theme: z.enum(['dark', 'light']).default('dark'),
+  defaultRange: z.enum(['1D', '7D', '1M', '3M', '6M', '1Y', '5Y']).default('1M'),
+  timezone: z.string().default('Asia/Jakarta'),
+  autoRefreshInterval: z.union([z.literal(0), z.literal(1), z.literal(5), z.literal(15), z.literal(30)]).default(5),
+});
+
+function readSettings() {
+  try {
+    const raw = localStorage.getItem('rdmarket_settings');
+    return raw ? StoredSettingsSchema.parse(JSON.parse(raw)) : StoredSettingsSchema.parse({});
+  } catch {
+    return StoredSettingsSchema.parse({});
+  }
+}
+
 export const useSettingsStore = defineStore('settings', () => {
-  const theme = ref<'dark' | 'light'>((localStorage.getItem('rdmarket_theme') as 'dark' | 'light') || 'dark');
-  const defaultRange = ref<TimeRange>((localStorage.getItem('rdmarket_range') as TimeRange) || '1M');
-  const timezone = ref<string>('Asia/Jakarta');
-  const autoRefreshInterval = ref<number>(
-    parseInt(localStorage.getItem('rdmarket_refresh') || '60', 10)
-  );
+  const stored = readSettings();
+  const theme = ref<'dark' | 'light'>(stored.theme);
+  const defaultRange = ref<TimeRange>(stored.defaultRange);
+  const timezone = ref<string>(stored.timezone);
+  const autoRefreshInterval = ref<number>(stored.autoRefreshInterval);
+
+  function persist() {
+    localStorage.setItem('rdmarket_settings', JSON.stringify({
+      theme: theme.value,
+      defaultRange: defaultRange.value,
+      timezone: timezone.value,
+      autoRefreshInterval: autoRefreshInterval.value,
+    }));
+  }
 
   function setTheme(newTheme: 'dark' | 'light') {
     theme.value = newTheme;
-    localStorage.setItem('rdmarket_theme', newTheme);
+    persist();
     document.documentElement.setAttribute('data-theme', newTheme);
   }
 
@@ -22,12 +47,12 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function setDefaultRange(range: TimeRange) {
     defaultRange.value = range;
-    localStorage.setItem('rdmarket_range', range);
+    persist();
   }
 
   function setAutoRefreshInterval(seconds: number) {
     autoRefreshInterval.value = seconds;
-    localStorage.setItem('rdmarket_refresh', seconds.toString());
+    persist();
   }
 
   // Initialize root attribute

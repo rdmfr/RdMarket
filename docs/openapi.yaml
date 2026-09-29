@@ -166,6 +166,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResponseEnvelope"
+  /market/usdidr/condition:
+    get:
+      operationId: getMarketCondition
+      summary: Transparent descriptive market-condition labels
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string, enum: [1D, 7D, 1M, 3M, 6M, 1Y, 5Y], default: 1M }
+      responses:
+        "200":
+          description: Rule-based market condition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+        "422":
+          description: Invalid range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
 components:
   schemas:
     Error:

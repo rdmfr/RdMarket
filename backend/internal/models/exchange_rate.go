@@ -42,11 +42,14 @@ type HistoricalPoint struct {
 
 // HistoricalRateData represents the payload for GET /api/v1/market/usdidr/history
 type HistoricalRateData struct {
-	CurrencyPair string            `json:"currency_pair"`
-	Range        string            `json:"range"`
-	Points       []HistoricalPoint `json:"points"`
-	TotalPoints  int               `json:"total_points"`
-	MissingCount int               `json:"missing_count"`
+	CurrencyPair      string            `json:"currency_pair"`
+	Range             string            `json:"range"`
+	Points            []HistoricalPoint `json:"points"`
+	TotalPoints       int               `json:"total_points"`
+	SourcePointCount  int               `json:"source_point_count"`
+	MissingCount      int               `json:"missing_count"`
+	Resolution        string            `json:"resolution"`
+	AggregationMethod string            `json:"aggregation_method"`
 }
 
 // StatisticsData represents statistical aggregates for GET /api/v1/market/usdidr/statistics

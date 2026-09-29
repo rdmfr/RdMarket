@@ -4,12 +4,10 @@ on:
   push:
     branches:
       - main
-      - master
       - develop
   pull_request:
     branches:
       - main
-      - master
       - develop
 
 permissions:
@@ -49,7 +47,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version-file: backend/go.mod
 
       - name: Download dependencies
         run: go mod download

@@ -6,6 +6,12 @@ RdMarket Intelligence is an analytical monitoring platform for the US Dollar to 
 
 It is strictly an **analytical monitoring tool**. It reports what stored historical and current data show without fabricating values, predicting certainty, or offering trading advice.
 
+Phase 1 adds the USD/IDR market-monitoring workflow: provider-backed ingestion and
+backfill, current and historical observations, descriptive statistics, SMA and
+rolling-volatility indicators, transparent market-condition labels, data-source
+status, and the Vue dashboard views. Forecasting, economic indicators, alerts,
+and other later-phase features are intentionally not included.
+
 ---
 
 ## 1. Architecture
@@ -131,11 +137,42 @@ Configuration is loaded centrally from environment variables with fail-fast vali
 | `SESSION_SECRET` | Secret key for signed cookies / tokens (min 32 chars in prod) | Required in production |
 | `AUTH_REQUIRE_READ` | Protect read-only endpoints with authentication | `false` |
 | `CORS_ALLOWED_ORIGINS` | Explicit permitted CORS origins | `http://localhost:3000` |
+| `INGESTION_INTERVAL_MINUTES` | Minimum interval between scheduled provider syncs | `15` |
+| `HISTORY_POINT_LIMIT` | Maximum points returned for a history request | `1500` |
 
 ### Environment Guard Rails
 - **Production Rejection**: The server refuses to start if `APP_ENV=production` and `EXCHANGE_RATE_PROVIDER=mock`.
 - **Simulated Banner**: When `MockProvider` is active in development or testing, API responses set `meta.simulated = true`, and the UI displays a persistent, non-dismissible `SIMULATED DATA` banner.
 - **Credential Protection**: `RedactedDump()` masks database passwords, API keys, password hashes, and session secrets in startup logs.
+
+## 10. Phase 1 market data
+
+The backend exposes the following read endpoints under `/api/v1`:
+
+- `GET /market/usdidr/current`
+- `GET /market/usdidr/history?range=1D|7D|1M|3M|6M|1Y|5Y`
+- `GET /market/usdidr/statistics`
+- `GET /market/usdidr/indicators?range=...`
+- `GET /market/usdidr/condition?range=...`
+- `GET /data-sources`
+
+The server performs the initial backfill when the database has no USD/IDR
+observations and then runs a single in-process sync scheduler. A provider error
+does not replace stored data or generate a fallback series; the API continues
+serving stored observations and reports the degraded source state.
+
+Previous close is the last accepted observation before the latest observation.
+Weekly and monthly changes use the latest accepted observation on or before the
+corresponding calendar boundary. SMA values use a warm-up window and remain
+missing until enough accepted observations exist. Rolling volatility is the
+sample standard deviation of daily log returns over 30 observations; no
+annualization is applied. Suspect and rejected observations are excluded from
+calculations.
+
+Condition labels are descriptive rules only: the short-term label uses the
+7-day return, the trend label uses the 30-day return and SMA 30, and the
+volatility label compares rolling volatility with the configured low and high
+limits. The UI repeats: “Descriptive statistics only. Not financial advice.”
 
 ---
 

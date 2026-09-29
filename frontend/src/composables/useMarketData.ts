@@ -17,12 +17,11 @@ export function useMarketData() {
 
   function startTimer() {
     clearTimer();
-    const intervalSec = settingsStore.autoRefreshInterval;
-    if (intervalSec > 0) {
+    const intervalMinutes = settingsStore.autoRefreshInterval;
+    if (intervalMinutes > 0) {
       refreshTimer = window.setInterval(() => {
-        // Only refresh current rate periodically to avoid overloading
-        marketStore.fetchCurrentRate();
-      }, intervalSec * 1000);
+        if (!document.hidden) marketStore.fetchCurrentRate();
+      }, intervalMinutes * 60 * 1000);
     }
   }
 
@@ -32,11 +31,18 @@ export function useMarketData() {
       marketStore.fetchAll();
     }
     startTimer();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
   });
 
   onUnmounted(() => {
     clearTimer();
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
   });
+
+  function handleVisibilityChange() {
+    if (document.hidden) clearTimer();
+    else startTimer();
+  }
 
   watch(
     () => settingsStore.autoRefreshInterval,
