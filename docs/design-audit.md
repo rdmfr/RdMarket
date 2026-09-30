@@ -11,6 +11,7 @@ The Vue UI in `frontend/` was created prior to Phase 0. As established in `CLAUD
 - `frontend/src/views/IndicatorsView.vue`: Technical indicators (SMA 7/30/90, return, rolling volatility).
 - `frontend/src/views/DataSourcesView.vue`: Feed connection status and provider capabilities.
 - `frontend/src/views/SettingsView.vue`: User preferences, auto-refresh interval, theme selection.
+- `frontend/src/views/EconomyView.vue`: Phase 3 economic indicator overview with source, period, release, staleness, and trend fields.
 
 ### 2. Layout Shell
 - `frontend/src/layouts/AppLayout.vue`: Master container with top navigation, sidebar rail, and main scroll area.

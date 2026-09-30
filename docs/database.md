@@ -44,6 +44,21 @@ interval bounds, actual/predicted values, and evaluation metrics use
 `NUMERIC`. Foreign keys cascade only when an explicit retention/cleanup
 operation deletes a parent record. No results are removed automatically.
 
+## Phase 3 Tables
+
+Migration `004_create_economic_indicators` adds the economic series catalog,
+revision-preserving observations, ingestion-run audit records, and derived
+market events. Observation identity is `(series_id, reference_date, revision)`;
+ingestion inserts a new revision and clears `is_latest` on the prior row rather
+than overwriting its value. Release time is nullable, while `retrieved_at` is
+always recorded. Economic values use `NUMERIC(24,10)`.
+
+Migration `005_create_alerts_and_briefs` adds versioned alert rules and state,
+deduplicated alert events, notification channels and delivery outbox rows, and
+stored market briefs. Channel configuration uses `BYTEA`; application code
+must encrypt it with AES-GCM before persistence and must never return plaintext
+secrets.
+
 ## PgBouncer Readiness
 - The application does not use server-side named prepared statements across transactions.
 - No session-level temporary tables or advisory locks that break PgBouncer transaction pooling mode.

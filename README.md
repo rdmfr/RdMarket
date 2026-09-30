@@ -1,8 +1,8 @@
 # RdMarket Intelligence
 
-> USD/IDR Financial Market Monitoring and Statistical Analysis Platform. Phase 2: Forecasting & Backtesting.
+> USD/IDR Financial Market Monitoring and Statistical Analysis Platform. Phase 3 development.
 
-RdMarket Intelligence is an analytical monitoring platform for the US Dollar to Indonesian Rupiah (USD/IDR) currency pair. The platform includes the Phase 0 foundation, Phase 1 market monitoring, and Phase 2 statistical forecasting and backtesting.
+RdMarket Intelligence is an analytical monitoring platform for the US Dollar to Indonesian Rupiah (USD/IDR) currency pair. The platform includes the Phase 0 foundation, Phase 1 market monitoring, Phase 2 statistical forecasting and backtesting, and the initial Phase 3 economic-data, event, and rule-evaluation foundations.
 
 It is strictly an **analytical monitoring tool**. It reports what stored historical and current data show without fabricating values, predicting certainty, or offering trading advice.
 
@@ -288,6 +288,33 @@ check uses its internal `/health` endpoint. A forecasting outage does not block
 or disable Phase 1 market endpoints; forecast requests return a structured
 degraded-service response.
 
+## 12. Phase 3 groundwork
+
+The current Phase 3 branch adds versioned economic and alert/brief schemas, a
+strict economic CSV parser, an official BLS API adapter and two catalog entries,
+idempotent catalog seeding, background BLS ingestion with revision preservation,
+pure indicator snapshot and historical co-movement calculations, typed alert
+evaluators, deterministic regime/brief utilities, AES-GCM and webhook security
+primitives, and an in-process domain event dispatcher. The Phase 1 ingestion
+path publishes USD/IDR update events after persistence.
+
+This is not yet the complete Phase 3 workflow: economic list/detail/history
+read endpoints and an Economy overview are available, but CSV import, source
+health, relationship analysis, alert, channel, and intelligence endpoints and
+screens are not. The notification outbox worker and delivery channels are not
+wired to the security primitives. Brief/regime utilities are not yet connected
+to stored market facts. E2E coverage remains outstanding. No production values
+are checked into the catalog or tests.
+
+The BLS catalog currently contains the seasonally adjusted CPI index and the
+seasonally adjusted unemployment rate. They are source observations, not a
+derived CPI year-over-year rate. BLS responses do not provide per-observation
+release timestamps; those remain null and the catalog uses a conservative
+31-day point-in-time lag after period end. `ECONOMIC_REFRESH_ENABLED` defaults
+to `true`; refresh defaults to a 24-hour cadence, can be disabled, and an
+optional BLS API key is redacted from startup logs. Source licensing and excluded series are detailed in
+[`docs/legal/data-sources.md`](docs/legal/data-sources.md).
+
 ---
 
 ## 6. Database Foundation & Conventions
@@ -349,7 +376,7 @@ GitHub Actions workflows in `.github/workflows/` enforce the Phase 0 status chec
 
 - **Phase 0**: Foundation & Infrastructure.
 - **Phase 1**: Market Monitoring (USD/IDR ingestion, statistics, interactive charting).
-- **Phase 2 (Current)**: Forecasting & Backtesting (Python service integration, prediction intervals).
-- **Phase 3**: Economic Indicators + Alerts & Market Intelligence (Outbox notifications, Macro feeds).
+- **Phase 2**: Forecasting & Backtesting (Python service integration, prediction intervals).
+- **Phase 3 (In Progress)**: Economic Indicators + Alerts & Market Intelligence. The current implementation is foundation-only; see Section 12.
 - **Phase 4**: Production Monitoring & Optimization (PgBouncer, metrics, budgets).
 - **Phase 5**: Deployment, Security Hardening & Release (GHCR, hardened Compose, drills).

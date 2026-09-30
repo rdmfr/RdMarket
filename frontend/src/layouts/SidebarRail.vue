@@ -24,7 +24,7 @@
         <!-- 2px left accent bar on active item -->
         <span
           v-if="$route.path === item.path"
-          class="absolute left-0 top-1 bottom-1 w-[2px] bg-accent"
+          class="absolute left-0 top-1 bottom-1 w-0.5 bg-accent"
         />
 
         <!-- Icon glyph (Financial Bloomberg style, 16px) -->
@@ -53,7 +53,7 @@
           isExpanded ? 'opacity-100' : 'opacity-0',
         ]"
       >
-        <div>PHASE 1: MONITORING</div>
+        <div>{{ tEconomic('economic.phaseStatus') }}</div>
         <div class="text-[9px] text-muted/80">v1.0.0-PROD</div>
       </div>
     </div>
@@ -63,6 +63,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { t } from '@/i18n/forecasting';
+import { tEconomic } from '@/i18n/economic';
 
 const isExpanded = ref(false);
 
@@ -71,6 +72,7 @@ const navItems = [
   { label: 'Market Data', path: '/market-data', icon: '☰' },
   { label: 'Indicators', path: '/indicators', icon: '📈' },
   { label: t('forecasting.nav'), path: '/forecast', icon: '↗' },
+  { label: tEconomic('economic.nav'), path: '/economy', icon: 'E' },
   { label: 'Data Sources', path: '/data-sources', icon: '⚏' },
   { label: 'Settings', path: '/settings', icon: '⚙' },
 ];

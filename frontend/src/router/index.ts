@@ -5,6 +5,7 @@ import IndicatorsView from '@/views/IndicatorsView.vue';
 import DataSourcesView from '@/views/DataSourcesView.vue';
 import SettingsView from '@/views/SettingsView.vue';
 import ForecastingView from '@/views/ForecastingView.vue';
+import EconomyView from '@/views/EconomyView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -30,6 +31,11 @@ const router = createRouter({
       component: ForecastingView,
     },
     {
+      path: '/economy',
+      name: 'economy',
+      component: EconomyView,
+    },
+    {
       path: '/data-sources',
       name: 'data-sources',
       component: DataSourcesView,
@@ -43,3 +49,4 @@ const router = createRouter({
 });
 
 export default router;
+

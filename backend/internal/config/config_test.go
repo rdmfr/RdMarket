@@ -25,6 +25,9 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	if cfg.Provider != "mock" {
 		t.Errorf("expected provider mock in dev, got: %s", cfg.Provider)
 	}
+	if !cfg.EconomicRefreshEnabled || cfg.EconomicRefreshHours != 24 {
+		t.Errorf("unexpected economic refresh defaults: enabled=%v hours=%d", cfg.EconomicRefreshEnabled, cfg.EconomicRefreshHours)
+	}
 	if err := bcrypt.CompareHashAndPassword([]byte(cfg.AdminPasswordHash), []byte("admin123")); err != nil {
 		t.Errorf("expected the default development password hash to match the documented E2E credential: %v", err)
 	}
@@ -62,6 +65,7 @@ func TestConfig_RedactedDump(t *testing.T) {
 	cfg := &Config{
 		DatabaseURL:        "postgres://rduser:SuperSecretPassword123@db.example.com:5432/rdmarket",
 		ExchangeRateAPIKey: "SecretApiKey123",
+		EconomicBLSAPIKey:  "SecretBLSKey123",
 		AdminPasswordHash:  "HashedPasswordValue",
 		SessionSecret:      "SuperSecretSessionKeyVal32Characters!",
 		AppEnv:             "production",
@@ -75,6 +79,9 @@ func TestConfig_RedactedDump(t *testing.T) {
 	if strings.Contains(dump, "SecretApiKey123") {
 		t.Errorf("RedactedDump leaked API key!")
 	}
+	if strings.Contains(dump, "SecretBLSKey123") {
+		t.Errorf("RedactedDump leaked BLS API key!")
+	}
 	if strings.Contains(dump, "HashedPasswordValue") {
 		t.Errorf("RedactedDump leaked admin password hash!")
 	}
@@ -83,6 +90,19 @@ func TestConfig_RedactedDump(t *testing.T) {
 	}
 	if !strings.Contains(dump, "REDACTED") {
 		t.Errorf("RedactedDump should contain 'REDACTED'")
+	}
+}
+
+func TestLoadConfig_ValidatesEconomicRefreshSettings(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ECONOMIC_REFRESH_ENABLED", "sometimes")
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "ECONOMIC_REFRESH_ENABLED") {
+		t.Fatalf("expected invalid economic refresh flag to be rejected, got %v", err)
+	}
+	t.Setenv("ECONOMIC_REFRESH_ENABLED", "true")
+	t.Setenv("ECONOMIC_REFRESH_INTERVAL_HOURS", "0")
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "ECONOMIC_REFRESH_INTERVAL_HOURS") {
+		t.Fatalf("expected invalid economic refresh interval to be rejected, got %v", err)
 	}
 }
 

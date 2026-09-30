@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"rdmarket-intelligence/backend/internal/config"
+	"rdmarket-intelligence/backend/internal/events"
 	"rdmarket-intelligence/backend/internal/models"
 	"rdmarket-intelligence/backend/internal/providers"
 	"rdmarket-intelligence/backend/internal/repositories"
@@ -30,9 +31,10 @@ func (s *DefaultMarketService) Ready() error {
 }
 
 type DefaultMarketService struct {
-	repo     repositories.ExchangeRateRepository
-	provider providers.ExchangeRateProvider
-	cfg      *config.Config
+	repo       repositories.ExchangeRateRepository
+	provider   providers.ExchangeRateProvider
+	cfg        *config.Config
+	dispatcher events.Dispatcher
 }
 
 func NewMarketService(
@@ -45,6 +47,10 @@ func NewMarketService(
 		provider: provider,
 		cfg:      cfg,
 	}
+}
+
+func (s *DefaultMarketService) SetEventDispatcher(dispatcher events.Dispatcher) {
+	s.dispatcher = dispatcher
 }
 
 func (s *DefaultMarketService) GetCurrentRate(currencyPair string) (*models.CurrentRateData, error) {
@@ -429,6 +435,9 @@ func (s *DefaultMarketService) SyncExternalData(currencyPair string) error {
 		if err := s.repo.SaveBatch(rates); err != nil {
 			return err
 		}
+		for i := range rates {
+			s.publishExchangeRateUpdated(&rates[i])
+		}
 	}
 
 	// Also fetch current
@@ -437,9 +446,21 @@ func (s *DefaultMarketService) SyncExternalData(currencyPair string) error {
 		if err := s.repo.Save(latest); err != nil {
 			return err
 		}
+		s.publishExchangeRateUpdated(latest)
 	}
 
 	return nil
+}
+
+func (s *DefaultMarketService) publishExchangeRateUpdated(rate *models.ExchangeRate) {
+	if s.dispatcher == nil || rate == nil {
+		return
+	}
+	s.dispatcher.PublishExchangeRateUpdated(events.ExchangeRateUpdated{
+		CurrencyPair: rate.CurrencyPair,
+		ObservedAt:   rate.Timestamp.UTC(),
+		Source:       rate.Source,
+	})
 }
 
 func (s *DefaultMarketService) SeedInitialDataIfEmpty(currencyPair string) error {

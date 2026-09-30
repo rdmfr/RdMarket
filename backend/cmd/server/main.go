@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"rdmarket-intelligence/backend/internal/config"
+	"rdmarket-intelligence/backend/internal/economic"
+	"rdmarket-intelligence/backend/internal/events"
 	"rdmarket-intelligence/backend/internal/forecasting"
 	"rdmarket-intelligence/backend/internal/handlers"
 	"rdmarket-intelligence/backend/internal/middleware"
@@ -88,6 +91,24 @@ func main() {
 
 	// Initialize Service
 	service := services.NewMarketService(repo, provider, cfg)
+	dispatcher := events.NewInProcessDispatcher()
+	service.SetEventDispatcher(dispatcher)
+	economicRepository := economic.NewRepository(db)
+	catalog, catalogErr := economic.LoadCatalog()
+	if catalogErr != nil {
+		log.Printf("event=economic_catalog_load_failed error=%q", catalogErr.Error())
+	} else {
+		if err := economicRepository.SeedCatalog(context.Background(), catalog); err != nil {
+			log.Printf("event=economic_catalog_seed_failed error=%q", err.Error())
+		} else if cfg.EconomicRefreshEnabled {
+			ingestionService := economic.NewIngestionService(
+				economicRepository,
+				map[string]economic.EconomicDataProvider{"bls_api": economic.NewBLSProvider(cfg.EconomicBLSAPIKey)},
+				dispatcher,
+			)
+			ingestionService.Run(context.Background(), catalog, time.Duration(cfg.EconomicRefreshHours)*time.Hour)
+		}
+	}
 	if err := service.SeedInitialDataIfEmpty("USD/IDR"); err != nil {
 		log.Printf("[RdMarket] Initial market-data sync unavailable: %v", err)
 	}
@@ -114,6 +135,7 @@ func main() {
 	authHandler := middleware.NewAuthHandler(cfg)
 	apiV1 := app.Group("/api/v1")
 	authHandler.RegisterRoutes(apiV1)
+	economic.NewHTTPHandler(economic.NewAPIService(economicRepository, catalog)).RegisterRoutes(apiV1, authHandler)
 	forecastClient := forecasting.NewHTTPForecastingClient(cfg.ForecastServiceURL, cfg.ForecastInternalToken)
 	forecastService := forecasting.NewService(db, forecastClient, cfg)
 	forecasting.NewHandler(forecastService, authHandler).RegisterRoutes(apiV1)

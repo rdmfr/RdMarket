@@ -32,6 +32,9 @@ type Config struct {
 	ForecastServiceURL       string  `json:"forecast_service_url"`
 	ForecastInternalToken    string  `json:"forecast_internal_token"`
 	ForecastMaxConcurrent    int     `json:"forecast_max_concurrent_jobs"`
+	EconomicBLSAPIKey        string  `json:"economic_bls_api_key"`
+	EconomicRefreshEnabled   bool    `json:"economic_refresh_enabled"`
+	EconomicRefreshHours     int     `json:"economic_refresh_interval_hours"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -141,6 +144,23 @@ func LoadConfig() (*Config, error) {
 	if forecastMaxConcurrent < 1 || forecastMaxConcurrent > 20 {
 		return nil, fmt.Errorf("FORECAST_MAX_CONCURRENT_JOBS must be between 1 and 20")
 	}
+	economicRefreshEnabled := true
+	if value := os.Getenv("ECONOMIC_REFRESH_ENABLED"); value != "" {
+		economicRefreshEnabled, err = strconv.ParseBool(value)
+		if err != nil {
+			return nil, fmt.Errorf("ECONOMIC_REFRESH_ENABLED must be a boolean")
+		}
+	}
+	economicRefreshHours := 24
+	if value := os.Getenv("ECONOMIC_REFRESH_INTERVAL_HOURS"); value != "" {
+		economicRefreshHours, err = strconv.Atoi(value)
+		if err != nil {
+			return nil, fmt.Errorf("ECONOMIC_REFRESH_INTERVAL_HOURS must be an integer")
+		}
+	}
+	if economicRefreshHours < 1 || economicRefreshHours > 168 {
+		return nil, fmt.Errorf("ECONOMIC_REFRESH_INTERVAL_HOURS must be between 1 and 168")
+	}
 
 	return &Config{
 		DatabaseURL:              dbURL,
@@ -163,25 +183,31 @@ func LoadConfig() (*Config, error) {
 		ForecastServiceURL:       forecastServiceURL,
 		ForecastInternalToken:    forecastToken,
 		ForecastMaxConcurrent:    forecastMaxConcurrent,
+		EconomicBLSAPIKey:        os.Getenv("ECONOMIC_BLS_API_KEY"),
+		EconomicRefreshEnabled:   economicRefreshEnabled,
+		EconomicRefreshHours:     economicRefreshHours,
 	}, nil
 }
 
 // RedactedDump returns a JSON representation of config with sensitive fields masked
 func (c *Config) RedactedDump() string {
 	type SafeConfig struct {
-		DatabaseURL        string  `json:"database_url"`
-		ExchangeRateAPIURL string  `json:"exchange_rate_api_url"`
-		ExchangeRateAPIKey string  `json:"exchange_rate_api_key"`
-		Provider           string  `json:"provider"`
-		AppEnv             string  `json:"app_env"`
-		Port               string  `json:"port"`
-		CORSAllowedOrigins string  `json:"cors_allowed_origins"`
-		AdminUsername      string  `json:"admin_username"`
-		AdminPasswordHash  string  `json:"admin_password_hash"`
-		SessionSecret      string  `json:"session_secret"`
-		AuthRequireRead    bool    `json:"auth_require_read"`
-		ShortTermThreshold float64 `json:"short_term_threshold"`
-		Trend30DThreshold  float64 `json:"trend_30d_threshold"`
+		DatabaseURL            string  `json:"database_url"`
+		ExchangeRateAPIURL     string  `json:"exchange_rate_api_url"`
+		ExchangeRateAPIKey     string  `json:"exchange_rate_api_key"`
+		EconomicBLSAPIKey      string  `json:"economic_bls_api_key"`
+		EconomicRefreshEnabled bool    `json:"economic_refresh_enabled"`
+		EconomicRefreshHours   int     `json:"economic_refresh_interval_hours"`
+		Provider               string  `json:"provider"`
+		AppEnv                 string  `json:"app_env"`
+		Port                   string  `json:"port"`
+		CORSAllowedOrigins     string  `json:"cors_allowed_origins"`
+		AdminUsername          string  `json:"admin_username"`
+		AdminPasswordHash      string  `json:"admin_password_hash"`
+		SessionSecret          string  `json:"session_secret"`
+		AuthRequireRead        bool    `json:"auth_require_read"`
+		ShortTermThreshold     float64 `json:"short_term_threshold"`
+		Trend30DThreshold      float64 `json:"trend_30d_threshold"`
 	}
 
 	redactedDB := c.DatabaseURL
@@ -194,21 +220,28 @@ func (c *Config) RedactedDump() string {
 	if c.ExchangeRateAPIKey != "" {
 		maskedKey = "REDACTED"
 	}
+	maskedBLSKey := ""
+	if c.EconomicBLSAPIKey != "" {
+		maskedBLSKey = "REDACTED"
+	}
 
 	safe := SafeConfig{
-		DatabaseURL:        redactedDB,
-		ExchangeRateAPIURL: c.ExchangeRateAPIURL,
-		ExchangeRateAPIKey: maskedKey,
-		Provider:           c.Provider,
-		AppEnv:             c.AppEnv,
-		Port:               c.Port,
-		CORSAllowedOrigins: c.CORSAllowedOrigins,
-		AdminUsername:      c.AdminUsername,
-		AdminPasswordHash:  "REDACTED",
-		SessionSecret:      "REDACTED",
-		AuthRequireRead:    c.AuthRequireRead,
-		ShortTermThreshold: c.ShortTermThreshold,
-		Trend30DThreshold:  c.Trend30DThreshold,
+		DatabaseURL:            redactedDB,
+		ExchangeRateAPIURL:     c.ExchangeRateAPIURL,
+		ExchangeRateAPIKey:     maskedKey,
+		EconomicBLSAPIKey:      maskedBLSKey,
+		EconomicRefreshEnabled: c.EconomicRefreshEnabled,
+		EconomicRefreshHours:   c.EconomicRefreshHours,
+		Provider:               c.Provider,
+		AppEnv:                 c.AppEnv,
+		Port:                   c.Port,
+		CORSAllowedOrigins:     c.CORSAllowedOrigins,
+		AdminUsername:          c.AdminUsername,
+		AdminPasswordHash:      "REDACTED",
+		SessionSecret:          "REDACTED",
+		AuthRequireRead:        c.AuthRequireRead,
+		ShortTermThreshold:     c.ShortTermThreshold,
+		Trend30DThreshold:      c.Trend30DThreshold,
 	}
 
 	data, _ := json.MarshalIndent(safe, "", "  ")

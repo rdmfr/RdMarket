@@ -94,6 +94,124 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResponseEnvelope"
+  /economic/indicators:
+    get:
+      operationId: getEconomicIndicators
+      summary: Active economic indicator catalog and latest stored observations
+      responses:
+        "200":
+          description: Indicator catalog with latest values or null when no observations are stored
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          { $ref: "#/components/schemas/EconomicIndicator" }
+        "401":
+          description: Authentication required when read access is protected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
+        "503":
+          description: Economic data store unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
+  /economic/indicators/{code}:
+    get:
+      operationId: getEconomicIndicator
+      summary: Economic indicator metadata and latest stored observation
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Indicator metadata and latest observation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/EconomicIndicator" }
+        "401":
+          description: Authentication required when read access is protected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
+        "404":
+          description: Indicator not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
+        "503":
+          description: Economic data store unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
+  /economic/indicators/{code}/history:
+    get:
+      operationId: getEconomicIndicatorHistory
+      summary: Point-in-time economic observation history and revisions
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+        - name: range
+          in: query
+          schema: { type: string, enum: [1M, 3M, 1Y, 5Y], default: 1Y }
+        - name: start
+          in: query
+          schema: { type: string, format: date }
+        - name: end
+          in: query
+          schema: { type: string, format: date }
+        - name: revisions
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Observations with reference date, release timestamp, retrieval time, and revision
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          { $ref: "#/components/schemas/EconomicObservation" }
+        "401":
+          description: Authentication required when read access is protected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
+        "404":
+          description: Indicator not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
+        "422":
+          description: Invalid date range or revisions parameter
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
+        "503":
+          description: Economic data store unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResponseEnvelope" }
   /market/usdidr/current:
     get:
       operationId: getCurrentRate
@@ -173,7 +291,8 @@ paths:
       parameters:
         - name: range
           in: query
-          schema: { type: string, enum: [1D, 7D, 1M, 3M, 6M, 1Y, 5Y], default: 1M }
+          schema:
+            { type: string, enum: [1D, 7D, 1M, 3M, 6M, 1Y, 5Y], default: 1M }
       responses:
         "200":
           description: Rule-based market condition
@@ -443,6 +562,82 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Error"
             - type: "null"
+    EconomicIndicator:
+      type: object
+      required:
+        - code
+        - name
+        - country
+        - category
+        - unit
+        - frequency
+        - seasonal_adjustment
+        - source_provider
+        - source_series_id
+        - source_url
+        - license_note
+        - description
+        - change_mode
+        - publication_lag_days
+        - latest_value
+        - previous_value
+        - change
+        - reference_date
+        - period_end
+        - release_timestamp
+        - retrieved_at
+        - stale
+        - staleness_days
+        - trend
+        - sparkline
+      properties:
+        code: { type: string }
+        name: { type: string }
+        country: { type: string }
+        category: { type: string }
+        unit: { type: string }
+        frequency: { type: string, enum: [daily, weekly, monthly, quarterly] }
+        seasonal_adjustment: { type: boolean }
+        source_provider: { type: string }
+        source_series_id: { type: string }
+        source_url: { type: string, format: uri }
+        license_note: { type: string }
+        description: { type: string }
+        change_mode: { type: string, enum: [level, percent, bps] }
+        publication_lag_days: { type: integer, minimum: 1 }
+        latest_value: { type: [string, "null"] }
+        previous_value: { type: [string, "null"] }
+        change: { type: [string, "null"] }
+        reference_date: { type: [string, "null"], format: date-time }
+        period_end: { type: [string, "null"], format: date-time }
+        release_timestamp: { type: [string, "null"], format: date-time }
+        retrieved_at: { type: [string, "null"], format: date-time }
+        stale: { type: [boolean, "null"] }
+        staleness_days: { type: [integer, "null"] }
+        trend: { type: string, enum: [rising, falling, flat, not_enough_data] }
+        sparkline:
+          type: array
+          items: { type: string }
+    EconomicObservation:
+      type: object
+      required:
+        [
+          reference_date,
+          period_end,
+          value,
+          release_timestamp,
+          retrieved_at,
+          revision,
+          is_latest,
+        ]
+      properties:
+        reference_date: { type: string, format: date-time }
+        period_end: { type: [string, "null"], format: date-time }
+        value: { type: string }
+        release_timestamp: { type: [string, "null"], format: date-time }
+        retrieved_at: { type: string, format: date-time }
+        revision: { type: integer, minimum: 0 }
+        is_latest: { type: boolean }
     ForecastModel:
       type: object
       required:
@@ -458,7 +653,18 @@ components:
       properties:
         name:
           type: string
-          enum: [naive, drift, seasonal_naive, ets, arima, sarima, ridge, gradient_boosting, lstm]
+          enum:
+            [
+              naive,
+              drift,
+              seasonal_naive,
+              ets,
+              arima,
+              sarima,
+              ridge,
+              gradient_boosting,
+              lstm,
+            ]
         version: { type: string }
         stability: { type: string, enum: [stable, experimental] }
         label: { type: string }
@@ -531,7 +737,18 @@ components:
           minItems: 1
           items:
             type: string
-            enum: [naive, drift, seasonal_naive, ets, arima, sarima, ridge, gradient_boosting, lstm]
+            enum:
+              [
+                naive,
+                drift,
+                seasonal_naive,
+                ets,
+                arima,
+                sarima,
+                ridge,
+                gradient_boosting,
+                lstm,
+              ]
         horizon:
           type: integer
           enum: [1, 5, 10, 21, 63]

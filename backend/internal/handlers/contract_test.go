@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"rdmarket-intelligence/backend/internal/config"
+	"rdmarket-intelligence/backend/internal/economic"
 	"rdmarket-intelligence/backend/internal/middleware"
 	"rdmarket-intelligence/backend/internal/models"
 	"rdmarket-intelligence/backend/internal/providers"
@@ -73,6 +75,7 @@ func TestOpenAPIContract(t *testing.T) {
 	app := fiber.New()
 	middleware.SetupMiddleware(app, cfg)
 	authHandler.RegisterRoutes(app.Group("/api/v1"))
+	economic.NewHTTPHandler(contractEconomicService{}).RegisterRoutes(app.Group("/api/v1"), authHandler)
 	handler.RegisterRoutes(app)
 
 	// 3. Test required endpoints in OpenAPI contract
@@ -84,6 +87,9 @@ func TestOpenAPIContract(t *testing.T) {
 		{"GET", "/api/v1/health", http.StatusOK},
 		{"GET", "/api/v1/ready", http.StatusOK},
 		{"GET", "/api/v1/data-sources", http.StatusOK},
+		{"GET", "/api/v1/economic/indicators", http.StatusOK},
+		{"GET", "/api/v1/economic/indicators/US_CPI_INDEX_SA", http.StatusOK},
+		{"GET", "/api/v1/economic/indicators/US_CPI_INDEX_SA/history?range=1Y", http.StatusOK},
 		{"GET", "/api/v1/market/usdidr/current", http.StatusOK},
 		{"GET", "/api/v1/market/usdidr/history?range=7D", http.StatusOK},
 		{"GET", "/api/v1/market/usdidr/statistics", http.StatusOK},
@@ -128,4 +134,18 @@ func TestOpenAPIContract(t *testing.T) {
 			}
 		})
 	}
+}
+
+type contractEconomicService struct{}
+
+func (contractEconomicService) ListIndicators(context.Context) ([]economic.IndicatorView, error) {
+	return []economic.IndicatorView{}, nil
+}
+
+func (contractEconomicService) GetIndicator(context.Context, string) (economic.IndicatorView, error) {
+	return economic.IndicatorView{Trend: "not_enough_data", Sparkline: []string{}}, nil
+}
+
+func (contractEconomicService) GetHistory(context.Context, string, time.Time, time.Time, bool) ([]economic.ObservationView, error) {
+	return []economic.ObservationView{}, nil
 }

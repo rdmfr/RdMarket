@@ -1,0 +1,38 @@
+[
+  {
+    "code": "US_CPI_INDEX_SA",
+    "name": "Consumer Price Index, all items, seasonally adjusted",
+    "country": "United States",
+    "category": "inflation",
+    "unit": "index, 1982-84=100",
+    "frequency": "monthly",
+    "seasonal_adjustment": true,
+    "source_provider": "bls_api",
+    "source_series_id": "CUSR0000SA0",
+    "source_url": "https://www.bls.gov/developers/",
+    "license_note": "BLS data are public domain; cite BLS and retrieval date. The API terms state BLS cannot vouch for downstream analyses.",
+    "description": "The index measures the average change over time in prices paid by urban consumers for a market basket of consumer goods and services.",
+    "change_mode": "level",
+    "trend_threshold": "0.1",
+    "publication_lag_days": 31,
+    "is_active": true
+  },
+  {
+    "code": "US_UNEMPLOYMENT_RATE_SA",
+    "name": "Unemployment rate, seasonally adjusted",
+    "country": "United States",
+    "category": "growth",
+    "unit": "percent",
+    "frequency": "monthly",
+    "seasonal_adjustment": true,
+    "source_provider": "bls_api",
+    "source_series_id": "LNS14000000",
+    "source_url": "https://www.bls.gov/developers/",
+    "license_note": "BLS data are public domain; cite BLS and retrieval date. The API terms state BLS cannot vouch for downstream analyses.",
+    "description": "The series reports the share of the civilian labor force that is unemployed and actively seeking work.",
+    "change_mode": "bps",
+    "trend_threshold": "1",
+    "publication_lag_days": 31,
+    "is_active": true
+  }
+]
