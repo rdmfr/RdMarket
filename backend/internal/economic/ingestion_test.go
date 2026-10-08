@@ -32,6 +32,10 @@ func (s *testObservationStore) RecordFailedRun(context.Context, string, string, 
 	return nil
 }
 
+func (s *testObservationStore) LatestObservationsByCode(context.Context, string, int) ([]ObservationRecord, error) {
+	return nil, nil
+}
+
 type testEconomicProvider struct {
 	entered chan struct{}
 	release chan struct{}

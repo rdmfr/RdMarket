@@ -120,6 +120,14 @@ func TestLoadConfig_ValidatesForecastSettings(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_ValidatesLogLevel(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("LOG_LEVEL", "verbose")
+	if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "LOG_LEVEL") {
+		t.Fatalf("expected invalid log level to be rejected, got %v", err)
+	}
+}
+
 func TestLoadConfig_ProductionRequiresStrongForecastToken(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("DATABASE_URL", "postgres://localhost:5432/rdmarket")

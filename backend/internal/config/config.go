@@ -21,6 +21,7 @@ type Config struct {
 	AdminPasswordHash  string `json:"admin_password_hash"`
 	SessionSecret      string `json:"session_secret"`
 	AuthRequireRead    bool   `json:"auth_require_read"`
+	LogLevel           string `json:"log_level"`
 
 	// Market condition thresholds (transparent rule-based parameters)
 	ShortTermThreshold       float64 `json:"short_term_threshold"`
@@ -32,6 +33,7 @@ type Config struct {
 	ForecastServiceURL       string  `json:"forecast_service_url"`
 	ForecastInternalToken    string  `json:"forecast_internal_token"`
 	ForecastMaxConcurrent    int     `json:"forecast_max_concurrent_jobs"`
+	MetricsToken             string  `json:"metrics_token"`
 	EconomicBLSAPIKey        string  `json:"economic_bls_api_key"`
 	EconomicRefreshEnabled   bool    `json:"economic_refresh_enabled"`
 	EconomicRefreshHours     int     `json:"economic_refresh_interval_hours"`
@@ -109,6 +111,13 @@ func LoadConfig() (*Config, error) {
 	}
 
 	authReqRead := os.Getenv("AUTH_REQUIRE_READ") == "true"
+	logLevel := strings.ToLower(os.Getenv("LOG_LEVEL"))
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	if logLevel != "debug" && logLevel != "info" && logLevel != "warn" && logLevel != "error" {
+		return nil, fmt.Errorf("LOG_LEVEL must be one of debug, info, warn, or error")
+	}
 
 	shortTermThreshold := getEnvFloat("SHORT_TERM_THRESHOLD", 0.002)
 	trend30DThreshold := getEnvFloat("TREND_30D_THRESHOLD", 0.005)
@@ -144,6 +153,10 @@ func LoadConfig() (*Config, error) {
 	if forecastMaxConcurrent < 1 || forecastMaxConcurrent > 20 {
 		return nil, fmt.Errorf("FORECAST_MAX_CONCURRENT_JOBS must be between 1 and 20")
 	}
+	metricsToken := os.Getenv("METRICS_TOKEN")
+	if appEnv == "production" && len(metricsToken) < 32 {
+		return nil, fmt.Errorf("METRICS_TOKEN must be at least 32 characters in production")
+	}
 	economicRefreshEnabled := true
 	if value := os.Getenv("ECONOMIC_REFRESH_ENABLED"); value != "" {
 		economicRefreshEnabled, err = strconv.ParseBool(value)
@@ -174,6 +187,7 @@ func LoadConfig() (*Config, error) {
 		AdminPasswordHash:        adminHash,
 		SessionSecret:            sessionSecret,
 		AuthRequireRead:          authReqRead,
+		LogLevel:                 logLevel,
 		ShortTermThreshold:       shortTermThreshold,
 		Trend30DThreshold:        trend30DThreshold,
 		VolatilityLowLimit:       volLowLimit,
@@ -183,6 +197,7 @@ func LoadConfig() (*Config, error) {
 		ForecastServiceURL:       forecastServiceURL,
 		ForecastInternalToken:    forecastToken,
 		ForecastMaxConcurrent:    forecastMaxConcurrent,
+		MetricsToken:             metricsToken,
 		EconomicBLSAPIKey:        os.Getenv("ECONOMIC_BLS_API_KEY"),
 		EconomicRefreshEnabled:   economicRefreshEnabled,
 		EconomicRefreshHours:     economicRefreshHours,

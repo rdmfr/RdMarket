@@ -13,6 +13,7 @@ import (
 	"rdmarket-intelligence/backend/internal/handlers"
 	"rdmarket-intelligence/backend/internal/middleware"
 	"rdmarket-intelligence/backend/internal/migrations"
+	"rdmarket-intelligence/backend/internal/monitoring"
 	"rdmarket-intelligence/backend/internal/providers"
 	"rdmarket-intelligence/backend/internal/repositories"
 	"rdmarket-intelligence/backend/internal/services"
@@ -93,6 +94,8 @@ func main() {
 	service := services.NewMarketService(repo, provider, cfg)
 	dispatcher := events.NewInProcessDispatcher()
 	service.SetEventDispatcher(dispatcher)
+	metricsRegistry := monitoring.NewRegistry(monitoring.RegistryConfig{})
+	metricsRegistry.RegisterRuntime()
 	economicRepository := economic.NewRepository(db)
 	catalog, catalogErr := economic.LoadCatalog()
 	if catalogErr != nil {
@@ -101,10 +104,11 @@ func main() {
 		if err := economicRepository.SeedCatalog(context.Background(), catalog); err != nil {
 			log.Printf("event=economic_catalog_seed_failed error=%q", err.Error())
 		} else if cfg.EconomicRefreshEnabled {
-			ingestionService := economic.NewIngestionService(
+			ingestionService := economic.NewIngestionServiceWithMetrics(
 				economicRepository,
 				map[string]economic.EconomicDataProvider{"bls_api": economic.NewBLSProvider(cfg.EconomicBLSAPIKey)},
 				dispatcher,
+				metricsRegistry.Pipeline(),
 			)
 			ingestionService.Run(context.Background(), catalog, time.Duration(cfg.EconomicRefreshHours)*time.Hour)
 		}
@@ -127,6 +131,9 @@ func main() {
 		AppName:      "RdMarket Intelligence API v1",
 		ServerHeader: "RdMarket",
 	})
+
+	app.Use(monitoring.HTTPMiddleware(metricsRegistry))
+	monitoring.RegisterRoutes(app, &monitoring.Config{Token: cfg.MetricsToken})
 
 	// Setup Middlewares
 	middleware.SetupMiddleware(app, cfg)

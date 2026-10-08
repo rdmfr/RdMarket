@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"rdmarket-intelligence/backend/internal/events"
+	"rdmarket-intelligence/backend/internal/monitoring"
 )
 
 var ErrIngestionInProgress = errors.New("economic series ingestion is already running")
@@ -22,18 +23,26 @@ type EconomicDataProvider interface {
 type ObservationStore interface {
 	SaveObservations(context.Context, string, string, []ImportedObservation, int) ([]events.EconomicObservationsUpdated, error)
 	RecordFailedRun(context.Context, string, string, error) error
+	LatestObservationsByCode(context.Context, string, int) ([]ObservationRecord, error)
 }
 
 type IngestionService struct {
 	store      ObservationStore
 	providers  map[string]EconomicDataProvider
 	dispatcher events.Dispatcher
+	metrics    *monitoring.PipelineMetrics
 	mu         sync.Mutex
 	seriesLock map[string]*sync.Mutex
 }
 
 func NewIngestionService(store ObservationStore, providers map[string]EconomicDataProvider, dispatcher events.Dispatcher) *IngestionService {
 	return &IngestionService{store: store, providers: providers, dispatcher: dispatcher, seriesLock: make(map[string]*sync.Mutex)}
+}
+
+func NewIngestionServiceWithMetrics(store ObservationStore, providers map[string]EconomicDataProvider, dispatcher events.Dispatcher, metrics *monitoring.PipelineMetrics) *IngestionService {
+	service := NewIngestionService(store, providers, dispatcher)
+	service.metrics = metrics
+	return service
 }
 
 func (s *IngestionService) Sync(ctx context.Context, series SeriesDefinition, start, end time.Time) error {
@@ -47,17 +56,22 @@ func (s *IngestionService) Sync(ctx context.Context, series SeriesDefinition, st
 	}
 	defer lock.Unlock()
 
+	started := time.Now()
+	providerName := provider.GetProviderName()
 	observations, err := provider.Fetch(ctx, series.SourceSeriesID, start, end)
 	if err != nil {
-		_ = s.store.RecordFailedRun(ctx, series.Code, provider.GetProviderName(), err)
+		_ = s.store.RecordFailedRun(ctx, series.Code, providerName, err)
+		s.recordPipelineRun(providerName, series.Code, "failed", time.Since(started).Seconds(), 0, 0, 0)
 		return err
 	}
-	changed, err := s.store.SaveObservations(ctx, series.Code, provider.GetProviderName(), observations, 0)
+	changed, err := s.store.SaveObservations(ctx, series.Code, providerName, observations, 0)
 	if err != nil {
-		_ = s.store.RecordFailedRun(ctx, series.Code, provider.GetProviderName(), err)
+		_ = s.store.RecordFailedRun(ctx, series.Code, providerName, err)
+		s.recordPipelineRun(providerName, series.Code, "failed", time.Since(started).Seconds(), 0, 0, 0)
 		return err
 	}
 	s.publish(changed)
+	s.recordPipelineRun(providerName, series.Code, "succeeded", time.Since(started).Seconds(), len(changed), 0, 0)
 	return nil
 }
 
@@ -72,11 +86,17 @@ func (s *IngestionService) ImportCSV(ctx context.Context, series SeriesDefinitio
 			observations = append(observations, *row.Observation)
 		}
 	}
+	started := time.Now()
 	changed, err := s.store.SaveObservations(ctx, series.Code, "csv_import", observations, result.Rejected)
 	if err != nil {
 		return CSVImportResult{}, err
 	}
 	s.publish(changed)
+	status := "succeeded"
+	if result.Rejected > 0 {
+		status = "partial"
+	}
+	s.recordPipelineRun("csv_import", series.Code, status, time.Since(started).Seconds(), len(changed), result.Rejected, 0)
 	return result, nil
 }
 
@@ -127,5 +147,17 @@ func (s *IngestionService) publish(changed []events.EconomicObservationsUpdated)
 	}
 	for _, event := range changed {
 		s.dispatcher.PublishEconomicObservationsUpdated(event)
+	}
+}
+
+func (s *IngestionService) recordPipelineRun(provider, series, status string, durationSeconds float64, accepted, rejected, revised int) {
+	if s == nil || s.metrics == nil {
+		return
+	}
+	s.metrics.ObserveIngestionRun(provider, series, status, durationSeconds, accepted, rejected, revised)
+	if accepted > 0 {
+		if latest, err := s.store.LatestObservationsByCode(context.Background(), series, 1); err == nil && len(latest) > 0 {
+			s.metrics.ObserveObservationFreshness(series, provider, time.Since(latest[0].RetrievedAt).Seconds())
+		}
 	}
 }

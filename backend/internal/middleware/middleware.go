@@ -5,6 +5,8 @@ import (
 	"rdmarket-intelligence/backend/internal/config"
 	"rdmarket-intelligence/backend/internal/errors"
 	"rdmarket-intelligence/backend/internal/models"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,6 +17,32 @@ import (
 )
 
 // SetupMiddleware registers the standard middleware pipeline
+func RedactSecrets(s string) string {
+	redacted := s
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)(password|secret|token|api[_-]?key)\s*[:=]\s*[^\s,;\"]+`),
+		regexp.MustCompile(`(?i)(postgres(?:ql)?://[^:\s/@]+:)[^@\s/]+@`),
+		regexp.MustCompile(`(?i)(Authorization\s*:\s*)Bearer\s+[^\s]+`),
+	}
+	for _, pattern := range patterns {
+		redacted = pattern.ReplaceAllStringFunc(redacted, func(match string) string {
+			if strings.Contains(match, "postgres://") {
+				return regexp.MustCompile(`(?i)(postgres(?:ql)?://)[^:@\s]+:[^@\s]+@`).ReplaceAllString(match, "$1user:REDACTED@")
+			}
+			return "REDACTED"
+		})
+	}
+	return redacted
+}
+
+func logLevelEnabled(cfg *config.Config, level string) bool {
+	if cfg == nil {
+		return true
+	}
+	levels := map[string]int{"debug": 10, "info": 20, "warn": 30, "error": 40}
+	return levels[cfg.LogLevel] >= levels[level]
+}
+
 func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 	// 1. Panic recovery
 	app.Use(recover.New(recover.Config{
@@ -22,8 +50,9 @@ func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 		StackTraceHandler: func(c *fiber.Ctx, e interface{}) {
 			// Structured panic log
 			reqID := c.Locals("requestid")
+			panicMsg := RedactSecrets(fmt.Sprintf("%v", e))
 			fmt.Printf(`{"level":"error","time":"%s","request_id":"%v","panic":"%v"}`+"\n",
-				time.Now().UTC().Format(time.RFC3339), reqID, e)
+				time.Now().UTC().Format(time.RFC3339), reqID, panicMsg)
 		},
 	}))
 
@@ -75,7 +104,9 @@ func SetupMiddleware(app *fiber.App, cfg *config.Config) {
 			time.Now().UTC().Format(time.RFC3339),
 			reqID, method, path, status, float64(latency.Microseconds())/1000.0, ip, simulated,
 		)
-		fmt.Print(logJSON)
+		if logLevelEnabled(cfg, "info") {
+			fmt.Print(RedactSecrets(logJSON))
+		}
 
 		return err
 	})

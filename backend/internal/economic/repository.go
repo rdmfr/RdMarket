@@ -146,6 +146,14 @@ func (r *Repository) LatestObservations(ctx context.Context, seriesID uint64, li
 	return records, err
 }
 
+func (r *Repository) LatestObservationsByCode(ctx context.Context, code string, limit int) ([]ObservationRecord, error) {
+	var series SeriesRecord
+	if err := r.db.WithContext(ctx).Where("code = ?", code).Take(&series).Error; err != nil {
+		return nil, err
+	}
+	return r.LatestObservations(ctx, series.ID, limit)
+}
+
 func (r *Repository) SaveObservations(ctx context.Context, code, provider string, observations []ImportedObservation, rejected int) ([]events.EconomicObservationsUpdated, error) {
 	changed := make([]events.EconomicObservationsUpdated, 0)
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
